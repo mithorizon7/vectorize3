@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SVGOptions } from "@/lib/svg-converter";
 import { presets, Preset, applyPreset } from "@/lib/conversion-presets";
+import { SettingInfoTooltip } from "@/components/SettingInfoTooltip";
+import { settingsHelpText, SettingId } from "@/lib/settings-help-text";
 import { 
   Sparkles, 
   Image, 
@@ -62,6 +64,23 @@ export default function ConversionSettings({
     setOptions(applyPreset(preset));
     setActivePreset(preset.id);
   };
+  
+  // Helper to generate setting headers with tooltips
+  const SettingHeader = ({ settingId }: { settingId: SettingId }) => (
+    <div className="flex items-center mb-3">
+      <h3 className="text-sm font-medium">{settingsHelpText[settingId].title}</h3>
+      <SettingInfoTooltip 
+        content={
+          <div>
+            <p>{settingsHelpText[settingId].description}</p>
+            {settingsHelpText[settingId].tips && (
+              <div className="mt-2">{settingsHelpText[settingId].tips}</div>
+            )}
+          </div>
+        } 
+      />
+    </div>
+  );
 
   return (
     <Card className="divide-y divide-gray-200">
@@ -133,7 +152,7 @@ export default function ConversionSettings({
           <TabsContent value="format" className="space-y-4">
             {/* File Format Options */}
             <div className="px-6 py-4">
-              <h3 className="text-sm font-medium mb-3">Output Format</h3>
+              <SettingHeader settingId="fileFormat" />
               <RadioGroup
                 value={options.fileFormat}
                 onValueChange={(value) => updateOption("fileFormat", value)}
@@ -164,7 +183,7 @@ export default function ConversionSettings({
 
             {/* SVG Version Options */}
             <div className="px-6 py-4">
-              <h3 className="text-sm font-medium mb-3">SVG Version</h3>
+              <SettingHeader settingId="svgVersion" />
               <RadioGroup
                 value={options.svgVersion}
                 onValueChange={(value) => updateOption("svgVersion", value)}
@@ -189,7 +208,7 @@ export default function ConversionSettings({
           <TabsContent value="structure" className="space-y-4">
             {/* Draw Style Options */}
             <div className="px-6 py-4">
-              <h3 className="text-sm font-medium mb-3">Draw Style</h3>
+              <SettingHeader settingId="drawStyle" />
               <RadioGroup
                 value={options.drawStyle}
                 onValueChange={(value) => updateOption("drawStyle", value)}
@@ -214,7 +233,7 @@ export default function ConversionSettings({
 
             {/* Shape Stacking Options */}
             <div className="px-6 py-4">
-              <h3 className="text-sm font-medium mb-3">Shape Stacking</h3>
+              <SettingHeader settingId="shapeStacking" />
               <RadioGroup
                 value={options.shapeStacking}
                 onValueChange={(value) => updateOption("shapeStacking", value)}
