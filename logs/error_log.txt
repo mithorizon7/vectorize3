@@ -2,3 +2,4 @@
 2025-04-15T04:38:34.843Z | POST | /api/convert | 400 | 10.82.XXX.XXX | 8522ms | Mozilla/5.0 (iPhone; CPU iPhon... | ERROR
 2025-04-15T04:39:00.682Z | POST | /api/convert | 400 | 10.82.XXX.XXX | 8409ms | Mozilla/5.0 (iPhone; CPU iPhon... | ERROR
 2025-04-15T04:39:23.337Z | POST | /api/convert | 400 | 10.82.XXX.XXX | 12758ms | Mozilla/5.0 (iPhone; CPU iPhon... | ERROR
+2025-04-15T14:18:08.061Z | POST | /api/convert | 400 | 10.82.XXX.XXX | 19ms | Mozilla/5.0 (Macintosh; Intel ... | ERROR

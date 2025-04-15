@@ -1,6 +1,5 @@
 // @ts-ignore
 import * as potrace from 'potrace';
-import * as sharp from 'sharp';
 import { JSDOM } from 'jsdom';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -36,12 +35,9 @@ export async function convertImageToSVG(
   try {
     console.log("Converting image to SVG...");
     
-    // Process the image with sharp first to ensure it's in a format potrace can handle
-    const processedImageBuffer = await preprocessImage(imageBuffer);
-    
     // Create a temp file for potrace (it works better with files than buffers)
     const tmpFilePath = path.join(tempDir, `${crypto.randomUUID()}.png`);
-    fs.writeFileSync(tmpFilePath, processedImageBuffer);
+    fs.writeFileSync(tmpFilePath, imageBuffer);
     
     try {
       // Set up potrace parameters based on options
@@ -115,26 +111,6 @@ export async function convertImageToSVG(
     }
   } catch (error) {
     console.error("Error converting image to SVG:", error);
-    throw error;
-  }
-}
-
-/**
- * Preprocess the image for better tracing
- */
-async function preprocessImage(imageBuffer: Buffer): Promise<Buffer> {
-  try {
-    // Use sharp for image preprocessing
-    return await sharp(imageBuffer)
-      // Convert to grayscale for better potrace results
-      .grayscale()
-      // Ensure good contrast for tracing
-      .normalize()
-      // Output as PNG (potrace works well with PNG)
-      .png()
-      .toBuffer();
-  } catch (error) {
-    console.error('Error preprocessing image:', error);
     throw error;
   }
 }
