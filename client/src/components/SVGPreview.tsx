@@ -79,14 +79,16 @@ export default function SVGPreview({
       
       // If "preserve original colors" is enabled, use the original SVG
       if (preserveOriginalColors) {
-        setActiveSvg(svg);
+        setActiveSvg(ensureProperSvgScaling(svg));
       } else {
-        setActiveSvg(svg);
+        setActiveSvg(ensureProperSvgScaling(svg));
       }
+    } else if (svg) {
+      // Update the active SVG, ensuring proper scaling
+      setActiveSvg(ensureProperSvgScaling(svg));
     } else {
-      // Only update the active SVG if "preserve original colors" is not enabled
-      // or if we're intentionally resetting to the original colors
-      setActiveSvg(svg);
+      // No SVG content available
+      setActiveSvg(null);
     }
     
     // Log detailed information about SVG content
@@ -98,7 +100,7 @@ export default function SVGPreview({
     } else {
       console.log("No SVG content available");
     }
-  }, [svgContent, svgContents, activeFileIndex, batchMode]);
+  }, [svgContent, svgContents, activeFileIndex, batchMode, originalSvg, preserveOriginalColors]);
 
   // Extract colors from SVG for multi-color mode
   useEffect(() => {
@@ -132,7 +134,7 @@ export default function SVGPreview({
     // Apply the current color settings using our helper function
     applyColorSettings(preserveOriginalColors);
     
-  }, [color, multiColorMode, colorMap]);
+  }, [color, multiColorMode, colorMap, originalSvg, activeSvg, preserveOriginalColors]);
 
   const handleDownload = () => {
     if (!activeSvg) return;
@@ -208,7 +210,7 @@ export default function SVGPreview({
     
     if (preserveColors) {
       // Restore the original SVG with all its colors
-      setActiveSvg(originalSvg);
+      setActiveSvg(ensureProperSvgScaling(originalSvg));
     } else {
       // Apply current color settings
       if (multiColorMode) {
@@ -219,7 +221,7 @@ export default function SVGPreview({
           const regex = new RegExp(originalColor, 'g');
           coloredSvg = coloredSvg.replace(regex, newColor);
         });
-        setActiveSvg(coloredSvg);
+        setActiveSvg(ensureProperSvgScaling(coloredSvg));
       } else {
         // In single color mode, apply the selected color to all fill attributes
         const parser = new DOMParser();
@@ -228,9 +230,46 @@ export default function SVGPreview({
         elements.forEach(el => {
           el.setAttribute('fill', color);
         });
-        setActiveSvg(new XMLSerializer().serializeToString(doc));
+        setActiveSvg(ensureProperSvgScaling(new XMLSerializer().serializeToString(doc)));
       }
     }
+  };
+  
+  // Helper function to ensure SVG has proper viewport and scaling attributes
+  const ensureProperSvgScaling = (svgString: string): string => {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(svgString, 'image/svg+xml');
+    const svgElement = doc.querySelector('svg');
+    
+    if (!svgElement) return svgString;
+    
+    // Ensure SVG has viewBox for proper scaling
+    if (!svgElement.hasAttribute('viewBox')) {
+      // Try to get width and height from attributes
+      let width = svgElement.getAttribute('width');
+      let height = svgElement.getAttribute('height');
+      
+      // If width and height are present, create a viewBox
+      if (width && height) {
+        width = width.replace(/[^0-9]/g, '');
+        height = height.replace(/[^0-9]/g, '');
+        svgElement.setAttribute('viewBox', `0 0 ${width} ${height}`);
+      } else {
+        // Default viewBox as fallback
+        svgElement.setAttribute('viewBox', '0 0 100 100');
+      }
+    }
+    
+    // Add preserveAspectRatio for better scaling behavior
+    if (!svgElement.hasAttribute('preserveAspectRatio')) {
+      svgElement.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    }
+    
+    // Set width and height to 100% for container-based scaling
+    svgElement.setAttribute('width', '100%');
+    svgElement.setAttribute('height', '100%');
+    
+    return new XMLSerializer().serializeToString(doc);
   };
 
   const resetZoom = () => {
@@ -377,10 +416,26 @@ export default function SVGPreview({
                           }}
                         >
                           <div 
-                            className="max-w-full max-h-full svg-content"
-                            style={{ height: 'auto', width: 'auto', maxWidth: '100%', maxHeight: '100%' }}
-                            dangerouslySetInnerHTML={{ __html: activeSvg }}
-                          />
+                            className="svg-content"
+                            style={{ 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              justifyContent: 'center',
+                              width: '100%',
+                              height: '100%'
+                            }}
+                          >
+                            <div
+                              style={{ 
+                                maxWidth: '100%', 
+                                maxHeight: '100%',
+                                display: 'flex',
+                                alignItems: 'center', 
+                                justifyContent: 'center'
+                              }}
+                              dangerouslySetInnerHTML={{ __html: activeSvg }}
+                            />
+                          </div>
                         </div>
                       </div>
                       <div className="absolute bottom-2 right-2 flex space-x-1">
