@@ -1,9 +1,16 @@
 // SVG Converter Types and Utilities
 
 export type SVGOptions = {
+  // Common options
   fileFormat: string;
   svgVersion: string;
   drawStyle: string;
+  strokeWidth: number;
+  
+  // Trace engine selection
+  traceEngine: 'potrace' | 'imagetracer';
+  
+  // Potrace specific options
   shapeStacking: string;
   groupBy: string;
   lineFit: string;
@@ -11,13 +18,27 @@ export type SVGOptions = {
   fillGaps: boolean;
   clipOverflow: boolean;
   nonScalingStroke: boolean;
-  strokeWidth: number;
+  
+  // ImageTracerJS specific options (for color tracing)
+  numberOfColors: number;
+  colorMode: 'color' | 'grayscale';
+  minColorRatio: number;
+  colorQuantization: 'default' | 'riemersma' | 'floyd-steinberg';
+  blurRadius: number;
+  preserveColors: boolean;
 };
 
 export const initialSVGOptions: SVGOptions = {
+  // Common options
   fileFormat: "svg",
   svgVersion: "1.1",
   drawStyle: "fillShapes",
+  strokeWidth: 2.0,
+  
+  // Trace engine selection (default to potrace for b&w images)
+  traceEngine: "potrace",
+  
+  // Potrace specific options
   shapeStacking: "placeCutouts", 
   groupBy: "none",
   lineFit: "medium",
@@ -25,7 +46,14 @@ export const initialSVGOptions: SVGOptions = {
   fillGaps: true,
   clipOverflow: false,
   nonScalingStroke: true,
-  strokeWidth: 2.0
+  
+  // ImageTracerJS specific options (for color tracing)
+  numberOfColors: 16,
+  colorMode: "color",
+  minColorRatio: 0.02,
+  colorQuantization: "default",
+  blurRadius: 0,
+  preserveColors: true
 };
 
 export function updateSvgColor(svgContent: string, color: string): string {

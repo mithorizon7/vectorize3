@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import * as fs from "fs";
 import { storage } from "./storage";
 import { convertImageToSVG, applySvgColor, setTransparentBackground } from "./conversion/svg-converter";
+import { convertImageToColorSVG, detectColorComplexity } from "./conversion/color-tracer";
 import { 
   upload, 
   apiLimiter, 
@@ -49,17 +50,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Convert form data strings to appropriate types
         const options = {
+          // Common options
           fileFormat: req.body.fileFormat || "svg",
           svgVersion: req.body.svgVersion || "1.1",
-          drawStyle: req.body.drawStyle || "fill",
-          shapeStacking: req.body.shapeStacking || "stacked",
-          groupBy: req.body.groupBy || "color",
-          lineFit: req.body.lineFit || "default",
-          allowedCurveTypes: req.body.allowedCurveTypes?.split(',') || ["all"],
+          drawStyle: req.body.drawStyle || "fillShapes",
+          strokeWidth: parseFloat(req.body.strokeWidth) || 0.5,
+          
+          // Engine selection
+          traceEngine: req.body.traceEngine || "potrace", // potrace or imagetracer
+          
+          // Potrace specific options
+          shapeStacking: req.body.shapeStacking || "placeCutouts",
+          groupBy: req.body.groupBy || "none",
+          lineFit: req.body.lineFit || "medium",
+          allowedCurveTypes: req.body.allowedCurveTypes?.split(',') || ["lines", "quadraticBezier", "cubicBezier"],
           fillGaps: req.body.fillGaps === 'true',
           clipOverflow: req.body.clipOverflow === 'true',
           nonScalingStroke: req.body.nonScalingStroke === 'true',
-          strokeWidth: parseFloat(req.body.strokeWidth) || 0.5,
+          
+          // ImageTracerJS specific options
+          numberOfColors: parseInt(req.body.numberOfColors || "16"),
+          colorMode: (req.body.colorMode || "color") as 'color' | 'grayscale',
+          minColorRatio: parseFloat(req.body.minColorRatio || "0.02"),
+          colorQuantization: (req.body.colorQuantization || "default") as 'default' | 'riemersma' | 'floyd-steinberg',
+          blurRadius: parseInt(req.body.blurRadius || "0"),
+          preserveColors: req.body.preserveColors === 'true'
         };
 
         console.log("Processing conversion with options:", options);
