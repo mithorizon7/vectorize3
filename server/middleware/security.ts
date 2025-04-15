@@ -1,158 +1,183 @@
-import { Request, Response, NextFunction } from 'express';
-import rateLimit from 'express-rate-limit';
-import helmet from 'helmet';
-import multer from 'multer';
-import path from 'path';
-import { v4 as uuidv4 } from 'uuid';
-import fs from 'fs';
+import { Request, Response, NextFunction } from "express";
+import multer from "multer";
+import fs from "fs";
+import path from "path";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 
-// Create temp upload directory if it doesn't exist
-const tempDir = path.join(process.cwd(), 'temp-uploads');
-if (!fs.existsSync(tempDir)) {
-  fs.mkdirSync(tempDir, { recursive: true });
-}
-
-// 1. Secure File Upload Configuration
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, tempDir);
-  },
-  filename: (_req, _file, cb) => {
-    // Generate a unique filename to prevent overwriting and path traversal
-    const uniqueFilename = `${uuidv4()}${path.extname(_file.originalname)}`;
-    cb(null, uniqueFilename);
-  }
-});
-
-// Strict file validation
+/**
+ * File filter function for multer to validate file uploads
+ */
 const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  // Allow only image files
-  const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'];
+  // Only allow specific image formats
+  const allowedMimeTypes = [
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/bmp',
+    'image/webp',
+    'image/tiff'
+  ];
   
   if (allowedMimeTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Invalid file type. Only images (JPEG, PNG, GIF, BMP, WebP) are allowed.'));
+    cb(new Error(`Unsupported file type: ${file.mimetype}. Only JPEG, PNG, GIF, BMP, WebP, and TIFF are supported.`));
   }
 };
 
-// Multer setup with limits
+/**
+ * Configure multer for file uploads with security settings
+ */
 export const upload = multer({
-  storage,
+  storage: multer.memoryStorage(), // Store files in memory for processing
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB max file size
-    files: 10 // Maximum 10 files at once
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+    files: 1 // Only one file at a time
   },
   fileFilter
 });
 
-// 2. Rate Limiting Middleware
+/**
+ * Rate limiter for API endpoints
+ */
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    status: 429,
-    message: 'Too many requests, please try again later.'
-  }
+  max: 100, // Limit each IP to 100 requests per window
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  message: "Too many requests from this IP, please try again after 15 minutes",
+  skipSuccessfulRequests: false
 });
 
-// More aggressive rate limiting for conversion endpoint
+/**
+ * Stricter rate limiter for conversion endpoint which is more resource-intensive
+ */
 export const conversionLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 25, // limit each IP to 25 conversions per hour
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // Limit each IP to 20 conversion requests per window
   standardHeaders: true,
   legacyHeaders: false,
-  message: {
-    status: 429,
-    message: 'You have exceeded the maximum number of conversions. Please try again later.'
-  }
+  message: "Too many conversion requests from this IP, please try again after 15 minutes",
+  skipSuccessfulRequests: false
 });
 
-// 3. Security Headers Middleware
+/**
+ * Security headers configuration using helmet
+ */
 export const securityHeaders = helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"], // Needed for the app to function
-      styleSrc: ["'self'", "'unsafe-inline'"], // Needed for the app to function
-      imgSrc: ["'self'", "data:", "blob:"], // Allow data URLs for SVG preview
+      scriptSrc: ["'self'", "'unsafe-inline'"], // For Vite in development
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "blob:"],
       connectSrc: ["'self'"],
-      fontSrc: ["'self'", "data:"],
+      fontSrc: ["'self'"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
-      frameSrc: ["'none'"]
+      frameSrc: ["'none'"],
+      sandbox: ["allow-forms", "allow-scripts", "allow-same-origin"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'none'"]
     }
   },
-  crossOriginEmbedderPolicy: false, // May need to adjust based on app requirements
-  crossOriginOpenerPolicy: { policy: 'same-origin' },
-  crossOriginResourcePolicy: { policy: 'same-origin' },
+  crossOriginEmbedderPolicy: false, // To allow loading of resources
+  crossOriginOpenerPolicy: { policy: "same-origin" },
+  crossOriginResourcePolicy: { policy: "same-site" },
   dnsPrefetchControl: { allow: false },
-  frameguard: { action: 'deny' },
-  hsts: { maxAge: 15552000, includeSubDomains: true },
+  // expectCt is deprecated in newer helmet versions
+  frameguard: { action: "deny" },
+  hidePoweredBy: true,
+  hsts: {
+    maxAge: 15552000,
+    includeSubDomains: true,
+    preload: true
+  },
   ieNoOpen: true,
   noSniff: true,
   originAgentCluster: true,
-  permittedCrossDomainPolicies: { permittedPolicies: 'none' },
-  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  permittedCrossDomainPolicies: { permittedPolicies: "none" },
+  referrerPolicy: { policy: "no-referrer" },
   xssFilter: true
 });
 
-// 4. Temporary File Cleanup Middleware
+/**
+ * Middleware to clean up temporary files (using simpler approach)
+ */
 export const cleanupTempFiles = (req: Request, res: Response, next: NextFunction) => {
-  // Store original end function
-  const originalEnd = res.end;
-  
-  // Override end function
-  res.end = function(...args: any[]) {
-    // Delete temp files after response is sent
-    if (req.file) {
+  // Clean up on response finish instead of overriding res.end
+  res.on('finish', () => {
+    // Check if there's a file to clean up
+    if (req.file && req.file.path) {
       try {
-        fs.unlinkSync(req.file.path);
+        if (fs.existsSync(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+          console.log(`Cleaned up temporary file: ${req.file.path}`);
+        }
       } catch (err) {
-        console.error('Error cleaning up temp file:', err);
+        console.error('Error cleaning up temporary file:', err);
       }
     }
     
+    // Check if multiple files need to be cleaned up
     if (req.files) {
-      const files = Array.isArray(req.files) ? req.files : Object.values(req.files).flat();
-      files.forEach(file => {
-        try {
-          fs.unlinkSync(file.path);
-        } catch (err) {
-          console.error('Error cleaning up temp file:', err);
-        }
-      });
+      try {
+        const files = Array.isArray(req.files) ? req.files : Object.values(req.files).flat();
+        
+        files.forEach(file => {
+          if (file.path && fs.existsSync(file.path)) {
+            fs.unlinkSync(file.path);
+            console.log(`Cleaned up temporary file: ${file.path}`);
+          }
+        });
+      } catch (err) {
+        console.error('Error cleaning up temporary files:', err);
+      }
     }
-    
-    // Call the original end function
-    return originalEnd.apply(res, args);
-  };
+  });
   
   next();
 };
 
-// 5. Error Handler Middleware
+/**
+ * Global error handling middleware
+ */
 export const errorHandler = (err: Error, req: Request, res: Response, next: NextFunction) => {
-  console.error(err);
+  // Log the error for debugging
+  console.error('Server error:', err);
   
-  // Handle multer errors
+  // Determine status code based on the error
+  let statusCode = 500;
+  let errorMessage = 'Internal Server Error';
+  
+  // Handle specific error types
   if (err instanceof multer.MulterError) {
-    if (err.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({ 
-        error: 'File too large. Maximum size is 10MB.'
-      });
+    statusCode = 400;
+    
+    // Provide friendly error messages for Multer errors
+    switch (err.code) {
+      case 'LIMIT_FILE_SIZE':
+        errorMessage = 'File size exceeds the 10MB limit';
+        break;
+      case 'LIMIT_FILE_COUNT':
+        errorMessage = 'Too many files uploaded';
+        break;
+      case 'LIMIT_UNEXPECTED_FILE':
+        errorMessage = 'Unexpected field name for file upload';
+        break;
+      default:
+        errorMessage = `File upload error: ${err.message}`;
     }
-    if (err.code === 'LIMIT_FILE_COUNT') {
-      return res.status(400).json({ 
-        error: 'Too many files. Maximum is 10 files at once.'
-      });
-    }
+  } else if (err.message.includes('Unsupported file type')) {
+    statusCode = 400;
+    errorMessage = err.message;
   }
   
-  // Generic error without exposing details
-  res.status(500).json({ 
-    error: err.message || 'An unexpected error occurred.'
+  // Send the error response
+  res.status(statusCode).json({
+    error: errorMessage,
+    status: statusCode
   });
 };
