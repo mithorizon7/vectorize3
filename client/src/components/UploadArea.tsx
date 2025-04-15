@@ -133,9 +133,12 @@ export default function UploadArea({
       setFile(file);
     }
     
+    // Set detailed loading status for better UX
     setConversionStatus({
       status: "loading",
-      message: isBatch ? `Converting ${fileIndex + 1} of ${selectedFiles.length}...` : "Converting...",
+      message: isBatch 
+        ? `Converting ${fileIndex + 1} of ${selectedFiles.length}${file.name ? ` (${file.name})` : ''}...` 
+        : `Transforming ${file.name || 'image'} to vector graphics...`,
     });
 
     try {
@@ -174,11 +177,12 @@ export default function UploadArea({
         setSvgContent(data.svg);
       }
       
+      // Provide more descriptive success messages
       setConversionStatus({
         status: "success",
         message: isBatch 
-          ? `Converted ${fileIndex + 1} of ${selectedFiles.length}` 
-          : "Conversion successful",
+          ? `Converted ${fileIndex + 1} of ${selectedFiles.length}${file.name ? ` (${file.name})` : ''}` 
+          : `SVG ready${file.name ? ` (${file.name.split('.')[0]}.svg)` : ''}`,
       });
       
       // Process next file in batch if there are more
@@ -189,11 +193,12 @@ export default function UploadArea({
       }
     } catch (error) {
       console.error('Error converting image:', error);
+      // Enhanced error messages for better user feedback
       setConversionStatus({
         status: "error",
         message: isBatch 
-          ? `Error converting file ${fileIndex + 1} of ${selectedFiles.length}` 
-          : "Conversion failed",
+          ? `Failed to convert ${file.name || `file ${fileIndex + 1}`} of ${selectedFiles.length}` 
+          : `Unable to process ${file.name || 'image'} - please try a different image or format`,
       });
       toast({
         title: "Conversion failed",
