@@ -96,9 +96,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const fileBuffer = fs.readFileSync(req.file.path);
         console.log(`File buffer created, size: ${fileBuffer.length} bytes`);
         
-        // Call the conversion function with the processed options
-        console.log("Starting SVG conversion...");
-        const result = await convertImageToSVG(fileBuffer, options);
+        // Choose conversion method based on traceEngine option
+        console.log(`Starting SVG conversion with ${options.traceEngine} engine...`);
+        
+        let result: string;
+        
+        // Use color analysis to auto-detect the best engine if not explicitly specified
+        if (options.traceEngine === 'auto') {
+          const colorAnalysis = await detectColorComplexity(fileBuffer);
+          console.log("Image color analysis:", colorAnalysis);
+          
+          // Choose engine based on color complexity
+          if (colorAnalysis.isColorImage && colorAnalysis.distinctColors > 8) {
+            console.log("Auto-selected imagetracer for color image");
+            result = await convertImageToColorSVG(fileBuffer, options);
+          } else {
+            console.log("Auto-selected potrace for black and white/low-color image");
+            result = await convertImageToSVG(fileBuffer, options);
+          }
+        } 
+        // Otherwise use the explicitly selected engine
+        else if (options.traceEngine === 'imagetracer') {
+          console.log("Using ImageTracerJS for color conversion");
+          result = await convertImageToColorSVG(fileBuffer, options);
+        } 
+        else {
+          // Default to potrace
+          console.log("Using Potrace for black and white conversion");
+          result = await convertImageToSVG(fileBuffer, options);
+        }
+        
         console.log(`Conversion complete, SVG length: ${result?.length || 0} characters`);
         
         // Sanitize SVG content for security

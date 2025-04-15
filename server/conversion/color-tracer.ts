@@ -4,24 +4,36 @@ import * as crypto from 'crypto';
 const ImageTracer = require('imagetracer');
 import { JSDOM } from 'jsdom';
 
-interface ColorTracingOptions {
-  // Basic options
+// Define the interface to accept all options from the client but only use what we need
+export interface ColorTracingOptions {
+  // Common options from SVGOptions
+  fileFormat?: string;
+  svgVersion: string;
+  drawStyle?: string;
+  strokeWidth: number;
+  traceEngine?: 'potrace' | 'imagetracer' | 'auto';
+  
+  // We accept but ignore these Potrace-specific options
+  shapeStacking?: string;
+  groupBy?: string;
+  lineFit?: string;
+  allowedCurveTypes?: string[];
+  fillGaps?: boolean;
+  clipOverflow?: boolean;
+  nonScalingStroke?: boolean;
+  
+  // ImageTracerJS specific options
   numberOfColors: number; // 2-256
   colorMode: 'color' | 'grayscale'; // color or grayscale
   minColorRatio: number; // 0-1, colors below this ratio are ignored
   colorQuantization: 'default' | 'riemersma' | 'floyd-steinberg'; // dithering method
-  
-  // SVG output options
-  strokeWidth: number;
-  lineJoin: 'round' | 'bevel' | 'miter';
-  lineCap: 'round' | 'square' | 'butt';
-  
-  // Preprocessing
   blurRadius: number; // preprocessing blur kernel radius, 0 = no blur
+  preserveColors?: boolean;
   
-  // Tracing
-  trackColors: boolean; // tracks colors for multicolor mode
-  svgVersion: string; // SVG version
+  // Additional options that may not be in the client-side options
+  lineJoin?: 'round' | 'bevel' | 'miter';
+  lineCap?: 'round' | 'square' | 'butt';
+  trackColors?: boolean; // tracks colors for multicolor mode
 }
 
 // Ensure temp directory exists

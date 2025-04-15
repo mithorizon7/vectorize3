@@ -8,7 +8,7 @@ export type SVGOptions = {
   strokeWidth: number;
   
   // Trace engine selection
-  traceEngine: 'potrace' | 'imagetracer';
+  traceEngine: 'potrace' | 'imagetracer' | 'auto';
   
   // Potrace specific options
   shapeStacking: string;
