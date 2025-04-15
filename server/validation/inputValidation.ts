@@ -26,9 +26,14 @@ purify.addHook("afterSanitizeAttributes", function (node) {
 
 // Zod schema for SVG conversion options
 export const svgOptionsSchema = z.object({
+  // Common options
   fileFormat: z.string().optional(),
   svgVersion: z.string().optional(),
   drawStyle: z.string().optional(),
+  strokeWidth: z.string().optional(),
+  traceEngine: z.string().optional(),
+  
+  // Potrace specific options
   shapeStacking: z.string().optional(),
   groupBy: z.string().optional(),
   lineFit: z.string().optional(),
@@ -36,7 +41,29 @@ export const svgOptionsSchema = z.object({
   fillGaps: z.string().optional(),
   clipOverflow: z.string().optional(),
   nonScalingStroke: z.string().optional(),
-  strokeWidth: z.string().optional()
+  
+  // Potrace advanced options
+  turdSize: z.string().optional(),
+  alphaMax: z.string().optional(),
+  optTolerance: z.string().optional(),
+  
+  // ImageTracerJS specific options
+  numberOfColors: z.string().optional(),
+  colorMode: z.string().optional(),
+  minColorRatio: z.string().optional(),
+  colorQuantization: z.string().optional(),
+  blurRadius: z.string().optional(),
+  preserveColors: z.string().optional(),
+  
+  // ImageTracer advanced options
+  colorSampling: z.string().optional(),
+  ltres: z.string().optional(),
+  qtres: z.string().optional(),
+  pathomit: z.string().optional(),
+  roundcoords: z.string().optional(),
+  
+  // Custom palette option
+  customPalette: z.string().optional()
 });
 
 // Zod schema for color input

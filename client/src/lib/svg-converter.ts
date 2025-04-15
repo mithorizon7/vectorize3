@@ -19,6 +19,11 @@ export type SVGOptions = {
   clipOverflow: boolean;
   nonScalingStroke: boolean;
   
+  // Potrace advanced options (for fine-tuning)
+  turdSize?: number;      // Suppress speckles of this size or smaller
+  alphaMax?: number;      // Corner threshold parameter
+  optTolerance?: number;  // Curve optimization tolerance
+  
   // ImageTracerJS specific options (for color tracing)
   numberOfColors: number;
   colorMode: 'color' | 'grayscale';
@@ -26,6 +31,16 @@ export type SVGOptions = {
   colorQuantization: 'default' | 'riemersma' | 'floyd-steinberg';
   blurRadius: number;
   preserveColors: boolean;
+  
+  // ImageTracer advanced options (for fine-tuning)
+  colorSampling?: 0 | 1;  // 0: disabled, 1: enabled - Whether color sampling should be used
+  ltres?: number;         // line threshold, default: 1
+  qtres?: number;         // quadratic threshold, default: 1
+  pathomit?: number;      // omit paths shorter than this, default: 8
+  roundcoords?: number;   // rounding digits, default: 1
+  
+  // Custom palette option
+  customPalette?: string[]; // Array of hex color codes to use as the palette
 };
 
 export const initialSVGOptions: SVGOptions = {
@@ -47,13 +62,28 @@ export const initialSVGOptions: SVGOptions = {
   clipOverflow: false,
   nonScalingStroke: true,
   
+  // Potrace advanced options - defaults based on lineFit="medium"
+  turdSize: 2,      // Suppress speckles of this size or smaller
+  alphaMax: 1.0,    // Corner threshold parameter
+  optTolerance: 0.2, // Curve optimization tolerance
+  
   // ImageTracerJS specific options (for color tracing)
   numberOfColors: 16,
   colorMode: "color",
   minColorRatio: 0.02,
   colorQuantization: "default",
   blurRadius: 0,
-  preserveColors: true
+  preserveColors: true,
+  
+  // ImageTracer advanced options - reasonable defaults
+  colorSampling: 1,  // 1: enabled - Whether color sampling should be used
+  ltres: 1,          // line threshold
+  qtres: 1,          // quadratic threshold
+  pathomit: 8,       // omit paths shorter than this
+  roundcoords: 1,    // rounding digits
+  
+  // Custom palette starts empty - will be auto-detected
+  customPalette: []  // Array of hex color codes to use as the palette
 };
 
 export function updateSvgColor(svgContent: string, color: string): string {
@@ -65,7 +95,8 @@ export function updateSvgColor(svgContent: string, color: string): string {
     const shapeTags = ['path', 'rect', 'circle', 'ellipse', 'polygon', 'polyline'];
     for (const tag of shapeTags) {
       const elements = svgDoc.querySelectorAll(tag);
-      for (const el of elements) {
+      // Convert NodeList to Array to avoid TypeScript iterability warnings
+      Array.from(elements).forEach(el => {
         const fill = el.getAttribute('fill');
         // Only update if fill is not explicitly set to 'none'
         if (!fill || fill !== 'none') {
@@ -77,12 +108,13 @@ export function updateSvgColor(svgContent: string, color: string): string {
         if (stroke && stroke !== 'none') {
           el.setAttribute('stroke', color);
         }
-      }
+      });
     }
     
     // Groups often have fill/stroke attributes too
     const groups = svgDoc.querySelectorAll('g');
-    for (const g of groups) {
+    // Convert NodeList to Array to avoid TypeScript iterability warnings
+    Array.from(groups).forEach(g => {
       const fill = g.getAttribute('fill');
       if (fill && fill !== 'none') {
         g.setAttribute('fill', color);
@@ -92,7 +124,7 @@ export function updateSvgColor(svgContent: string, color: string): string {
       if (stroke && stroke !== 'none') {
         g.setAttribute('stroke', color);
       }
-    }
+    });
     
     const serializer = new XMLSerializer();
     return serializer.serializeToString(svgDoc);
@@ -113,7 +145,8 @@ export function setTransparentBackground(svgContent: string, isTransparent: bool
       const backgrounds = svgElement.querySelectorAll('rect[width="100%"][height="100%"], rect[x="0"][y="0"]');
       
       if (backgrounds.length > 0) {
-        backgrounds.forEach(bg => {
+        // Convert NodeList to Array to avoid TypeScript iterability warnings
+        Array.from(backgrounds).forEach(bg => {
           bg.setAttribute('fill', isTransparent ? 'none' : '#FFFFFF');
         });
       } else {
