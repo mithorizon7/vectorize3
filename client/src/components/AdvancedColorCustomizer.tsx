@@ -1,325 +1,235 @@
-import { useState, useEffect, Dispatch, SetStateAction } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
+import React, { useState, useEffect, Dispatch, SetStateAction } from "react";
+import { HexColorPicker } from "react-colorful";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { HexColorPicker } from "react-colorful";
-import { presets } from "@/lib/conversion-presets";
-import { Copy, CheckCheck, Pipette, Palette, Plus } from "lucide-react";
+import { Palette, RefreshCw, CheckCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { applySvgColor } from "@/lib/fetch-helpers";
 
 interface AdvancedColorCustomizerProps {
   colorMap: Record<string, string>;
   setColorMap: Dispatch<SetStateAction<Record<string, string>>>;
   detectedColors: string[];
+  svgContent: string | null;
+  setSvgContent: Dispatch<SetStateAction<string | null>>;
 }
 
 export default function AdvancedColorCustomizer({
   colorMap,
   setColorMap,
-  detectedColors
+  detectedColors,
+  svgContent,
+  setSvgContent
 }: AdvancedColorCustomizerProps) {
+  const { toast } = useToast();
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
-  const [currentHexValue, setCurrentHexValue] = useState("#000000");
-  const [copiedColor, setCopiedColor] = useState<string | null>(null);
-  const [suggestedPalettes, setSuggestedPalettes] = useState<Record<string, string[]>>({
-    grayscale: ["#000000", "#333333", "#666666", "#999999", "#CCCCCC", "#FFFFFF"],
-    primary: ["#1E88E5", "#1565C0", "#0D47A1", "#82B1FF", "#E3F2FD"],
-    accent: ["#F44336", "#4CAF50", "#FFC107", "#9C27B0", "#FF9800"],
-    recommended: [] // Initialize with an empty array
-  });
+  const [replacementColor, setReplacementColor] = useState("#000000");
+  const [loading, setLoading] = useState(false);
 
-  // Update suggestions based on detected colors
+  // Detect colors if detectedColors is empty
   useEffect(() => {
-    // Initialize suggestions from preset palettes when detected colors change
-    if (detectedColors.length > 0) {
-      // Find a preset with recommended colors if available
-      const suitablePreset = presets.find(p => 
-        p.colorSettings?.recommendedPalette && p.colorSettings.recommendedPalette.length > 0
-      );
+    if (detectedColors.length === 0 && svgContent) {
+      // Simple color extraction from SVG
+      const colorRegex = /#[0-9A-Fa-f]{3,6}|rgb\([^)]+\)|rgba\([^)]+\)/g;
+      const matches = svgContent.match(colorRegex) || [];
       
-      // Safely update the suggested palettes
-      setSuggestedPalettes(prev => {
-        const recommendedColors = suitablePreset?.colorSettings?.recommendedPalette || [];
-        return {
-          ...prev,
-          recommended: recommendedColors
-        };
+      // Create unique set of detected colors
+      const uniqueColors = Array.from(new Set(matches));
+      
+      // Initialize color map
+      const initialColorMap: Record<string, string> = {};
+      uniqueColors.forEach(color => {
+        initialColorMap[color] = color;
       });
+      
+      setColorMap(initialColorMap);
     }
-  }, [detectedColors]);
-
-  // Initialize color selection when detected colors change
-  useEffect(() => {
-    if (detectedColors.length > 0 && selectedColor === null) {
-      setSelectedColor(detectedColors[0]);
-      setCurrentHexValue(colorMap[detectedColors[0]] || "#000000");
-    }
-  }, [detectedColors, colorMap, selectedColor]);
-
-  // Update current hex value when selection changes
-  useEffect(() => {
-    if (selectedColor) {
-      setCurrentHexValue(colorMap[selectedColor] || selectedColor);
-    }
-  }, [selectedColor, colorMap]);
-
-  const handleColorChange = (color: string) => {
-    setCurrentHexValue(color);
-    if (selectedColor) {
-      setColorMap(prev => ({ ...prev, [selectedColor]: color }));
-    }
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    if (/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(value)) {
-      handleColorChange(value);
-    } else {
-      setCurrentHexValue(value);
-    }
-  };
+  }, [svgContent, detectedColors, setColorMap]);
 
   const handleColorSelect = (color: string) => {
     setSelectedColor(color);
-    setCurrentHexValue(colorMap[color] || color);
+    setReplacementColor(colorMap[color] || color);
   };
 
-  const handleCopyColor = (color: string) => {
-    navigator.clipboard.writeText(color);
-    setCopiedColor(color);
-    setTimeout(() => setCopiedColor(null), 2000);
+  const handleReplacementChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setReplacementColor(e.target.value);
   };
 
-  const getContrastColor = (hexColor: string) => {
-    // Convert hex to RGB
-    const r = parseInt(hexColor.substring(1, 3), 16);
-    const g = parseInt(hexColor.substring(3, 5), 16);
-    const b = parseInt(hexColor.substring(5, 7), 16);
+  const applyColorChange = async () => {
+    if (!selectedColor || !svgContent) return;
     
-    // Calculate luminance
-    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    
-    // Return black for light colors, white for dark
-    return luminance > 0.5 ? '#000000' : '#FFFFFF';
+    try {
+      setLoading(true);
+      
+      // Update color map
+      const updatedColorMap = { ...colorMap, [selectedColor]: replacementColor };
+      setColorMap(updatedColorMap);
+      
+      // Apply all color replacements to SVG
+      let updatedSvg = svgContent;
+      Object.entries(updatedColorMap).forEach(([originalColor, newColor]) => {
+        if (originalColor !== newColor) {
+          // Replace color in attributes
+          const colorRegex = new RegExp(`${originalColor}(?=["\s;])`, 'g');
+          updatedSvg = updatedSvg.replace(colorRegex, newColor);
+        }
+      });
+      
+      setSvgContent(updatedSvg);
+      
+      toast({
+        title: "Color updated",
+        description: `Changed ${selectedColor} to ${replacementColor}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error updating color",
+        description: "Failed to apply color changes",
+        variant: "destructive",
+      });
+      console.error("Error applying color:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const ColorPalette = ({ colors, title }: { colors: string[], title: string }) => (
-    <div className="space-y-2 mb-4">
-      <h3 className="text-sm font-medium">{title}</h3>
-      <div className="flex flex-wrap gap-2">
-        {colors.map((color, index) => (
-          <Button
-            key={`${title}-${color}-${index}`}
-            variant="outline"
-            className="p-0 h-8 w-8 rounded-md relative group"
-            style={{ background: color, borderColor: getContrastColor(color) === '#000000' ? '#ddd' : '#555' }}
-            onClick={() => handleColorChange(color)}
-          >
-            <span className="sr-only">Select {color}</span>
-            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100">
-              <Pipette 
-                className="h-4 w-4" 
-                style={{ color: getContrastColor(color) }} 
-              />
-            </div>
-          </Button>
-        ))}
-      </div>
-    </div>
-  );
+  const resetColors = () => {
+    const resetMap: Record<string, string> = {};
+    Object.keys(colorMap).forEach(color => {
+      resetMap[color] = color;
+    });
+    
+    setColorMap(resetMap);
+    setSelectedColor(null);
+    setReplacementColor("#000000");
+    
+    toast({
+      title: "Colors reset",
+      description: "All colors have been reset to their original values",
+    });
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <h2 className="text-lg font-semibold">Multi-Color Customization</h2>
-        <p className="text-sm text-muted-foreground">
-          Customize each detected color in your SVG individually
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left column: Color selector and detected colors */}
-        <div className="space-y-4">
-          <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
-            <div className="p-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="font-medium">Detected Colors</h3>
-                <Badge variant="outline" className="ml-2">
-                  {detectedColors.length} colors
-                </Badge>
+    <Card className="w-full">
+      <CardContent className="p-4">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium flex items-center">
+              <Palette className="h-4 w-4 mr-1" />
+              Multi-Color Management
+            </h3>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="h-7 text-xs"
+              onClick={resetColors}
+            >
+              <RefreshCw className="h-3 w-3 mr-1" />
+              Reset
+            </Button>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label className="text-xs mb-2 block">Colors in SVG</Label>
+              <div className="flex flex-wrap gap-2 mb-4">
+                {Object.keys(colorMap).length > 0 ? (
+                  Object.keys(colorMap).map((color) => (
+                    <Badge
+                      key={color}
+                      variant={selectedColor === color ? "default" : "outline"}
+                      className="flex items-center cursor-pointer"
+                      style={{ 
+                        backgroundColor: selectedColor === color ? undefined : color,
+                        color: selectedColor === color ? undefined : getContrastColor(color),
+                        borderColor: isLightColor(color) ? '#ddd' : 'transparent'
+                      }}
+                      onClick={() => handleColorSelect(color)}
+                    >
+                      {color}
+                      {selectedColor === color && <CheckCircle className="h-3 w-3 ml-1" />}
+                    </Badge>
+                  ))
+                ) : (
+                  <p className="text-xs text-gray-500">No colors detected</p>
+                )}
               </div>
               
-              <ScrollArea className="h-[120px] rounded-md border">
-                <div className="flex flex-wrap gap-2 p-3">
-                  {detectedColors.map((color) => (
+              {selectedColor && (
+                <div className="mb-4">
+                  <Label className="text-xs mb-2 block">Replace with</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={replacementColor}
+                      onChange={handleReplacementChange}
+                      type="text"
+                      className="h-8 text-xs"
+                    />
                     <div 
-                      key={color}
-                      className="relative group"
-                    >
-                      <Button
-                        variant={selectedColor === color ? "default" : "outline"}
-                        size="sm"
-                        className={`h-8 flex items-center gap-2 ${
-                          selectedColor === color ? "border-2 border-primary" : ""
-                        }`}
-                        onClick={() => handleColorSelect(color)}
-                      >
-                        <div 
-                          className="w-4 h-4 rounded-sm border"
-                          style={{ 
-                            backgroundColor: colorMap[color] || color,
-                            borderColor: getContrastColor(colorMap[color] || color) === '#000000' ? '#ddd' : '#555'
-                          }}
-                        />
-                        <span className="text-xs">{colorMap[color] || color}</span>
-                      </Button>
-                      
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 p-0 absolute -right-2 -top-2 bg-background border rounded-full opacity-0 group-hover:opacity-100"
-                        onClick={() => handleCopyColor(colorMap[color] || color)}
-                      >
-                        {copiedColor === (colorMap[color] || color) ? (
-                          <CheckCheck className="h-3 w-3" />
-                        ) : (
-                          <Copy className="h-3 w-3" />
-                        )}
-                      </Button>
-                    </div>
-                  ))}
+                      className="h-8 w-8 rounded border" 
+                      style={{ backgroundColor: replacementColor }}
+                    />
+                  </div>
                 </div>
-              </ScrollArea>
+              )}
+              
+              <Button
+                size="sm"
+                disabled={!selectedColor || loading}
+                onClick={applyColorChange}
+                className="w-full"
+              >
+                Apply Color Change
+              </Button>
+            </div>
+            
+            <div>
+              {selectedColor && (
+                <div>
+                  <Label className="text-xs mb-2 block">Color Picker</Label>
+                  <HexColorPicker 
+                    color={replacementColor} 
+                    onChange={setReplacementColor} 
+                    className="w-full" 
+                  />
+                  <div className="flex justify-between mt-2">
+                    <Badge variant="outline" style={{ backgroundColor: selectedColor }}>
+                      Original
+                    </Badge>
+                    <Badge variant="outline" style={{ backgroundColor: replacementColor }}>
+                      New
+                    </Badge>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-          
-          {selectedColor && (
-            <Card>
-              <CardContent className="p-4 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div 
-                      className="w-6 h-6 rounded-sm border"
-                      style={{ 
-                        backgroundColor: selectedColor,
-                        borderColor: getContrastColor(selectedColor) === '#000000' ? '#ddd' : '#555'
-                      }}
-                    />
-                    <span className="text-sm font-medium">Original: {selectedColor}</span>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <div 
-                      className="w-6 h-6 rounded-sm border"
-                      style={{ 
-                        backgroundColor: colorMap[selectedColor] || selectedColor,
-                        borderColor: getContrastColor(colorMap[selectedColor] || selectedColor) === '#000000' ? '#ddd' : '#555'
-                      }}
-                    />
-                    <span className="text-sm font-medium">New: {colorMap[selectedColor] || selectedColor}</span>
-                  </div>
-                </div>
-                
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <Label htmlFor="hexColor" className="text-xs">Hex Color</Label>
-                    <div className="flex">
-                      <Input
-                        id="hexColor"
-                        value={currentHexValue}
-                        onChange={handleInputChange}
-                        className="font-mono"
-                        placeholder="#RRGGBB"
-                      />
-                    </div>
-                  </div>
-                </div>
-                
-                <HexColorPicker 
-                  color={currentHexValue} 
-                  onChange={handleColorChange} 
-                  className="w-full !h-[160px]"
-                />
-              </CardContent>
-            </Card>
-          )}
         </div>
-        
-        {/* Right column: Color palettes and suggestions */}
-        <div className="space-y-4">
-          <Card>
-            <CardContent className="p-4">
-              <Tabs defaultValue="recommended">
-                <TabsList className="grid grid-cols-3 mb-4">
-                  <TabsTrigger value="recommended">
-                    <Palette className="h-4 w-4 mr-2" />
-                    Recommended
-                  </TabsTrigger>
-                  <TabsTrigger value="basic">
-                    <Palette className="h-4 w-4 mr-2" />
-                    Basic
-                  </TabsTrigger>
-                  <TabsTrigger value="custom">
-                    <Palette className="h-4 w-4 mr-2" />
-                    Custom
-                  </TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="recommended" className="mt-0 space-y-4">
-                  {suggestedPalettes.recommended.length > 0 ? (
-                    <ColorPalette 
-                      colors={suggestedPalettes.recommended} 
-                      title="Recommended Colors" 
-                    />
-                  ) : (
-                    <div className="text-center py-4 text-muted-foreground">
-                      <p>No recommended colors available for this SVG.</p>
-                    </div>
-                  )}
-                </TabsContent>
-                
-                <TabsContent value="basic" className="mt-0 space-y-4">
-                  <ColorPalette 
-                    colors={suggestedPalettes.grayscale} 
-                    title="Grayscale" 
-                  />
-                  <ColorPalette 
-                    colors={suggestedPalettes.primary} 
-                    title="Primary" 
-                  />
-                  <ColorPalette 
-                    colors={suggestedPalettes.accent} 
-                    title="Accent" 
-                  />
-                </TabsContent>
-                
-                <TabsContent value="custom" className="mt-0 space-y-4">
-                  <div className="text-center py-4 space-y-4">
-                    <p className="text-muted-foreground">Coming soon: Create and save your own custom color palettes</p>
-                    <Button variant="outline" disabled>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Create Custom Palette
-                    </Button>
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
-          
-          <div className="bg-muted/50 rounded-lg p-4">
-            <h3 className="font-medium mb-2">Tips for Multi-Color SVGs</h3>
-            <ul className="text-sm space-y-2 text-muted-foreground list-disc list-inside">
-              <li>Select a color from the detected colors list on the left</li>
-              <li>Use the color picker or enter a hex value to change it</li>
-              <li>Try using a consistent color palette for better visual harmony</li>
-              <li>Consider accessibility and contrast when choosing colors</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
+}
+
+// Helper functions for color contrast
+function isLightColor(color: string): boolean {
+  // Simple check for light colors (for border visibility)
+  if (color.startsWith('#')) {
+    const hex = color.replace('#', '');
+    const r = parseInt(hex.slice(0, 2), 16);
+    const g = parseInt(hex.slice(2, 4), 16);
+    const b = parseInt(hex.slice(4, 6), 16);
+    return (r*0.299 + g*0.587 + b*0.114) > 150;
+  }
+  return false;
+}
+
+function getContrastColor(color: string): string {
+  // Return black or white depending on background color
+  if (isLightColor(color)) {
+    return '#000000';
+  }
+  return '#ffffff';
 }

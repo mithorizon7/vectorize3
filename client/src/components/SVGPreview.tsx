@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Dispatch, SetStateAction } from "react";
+import React, { useState, useEffect, Dispatch, SetStateAction, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -406,6 +406,8 @@ export default function SVGPreview({
                 colorMap={colorMap}
                 setColorMap={setColorMap}
                 detectedColors={detectedColors}
+                svgContent={activeSvg}
+                setSvgContent={setActiveSvg}
               />
             ) : (
               <ColorCustomizer 
