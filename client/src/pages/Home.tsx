@@ -1,16 +1,32 @@
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import UploadArea from "@/components/UploadArea";
 import SVGPreview from "@/components/SVGPreview";
-import ColorCustomizer from "@/components/ColorCustomizer";
 import ConversionSettings from "@/components/ConversionSettings";
 import { SVGOptions, initialSVGOptions } from "@/lib/svg-converter";
 
 export default function Home() {
+  // Single file state
   const [file, setFile] = useState<File | null>(null);
   const [svgContent, setSvgContent] = useState<string | null>(null);
+  
+  // Batch processing state
+  const [files, setFiles] = useState<File[]>([]);
+  const [svgContents, setSvgContents] = useState<(string | null)[]>([]);
+  const [activeFileIndex, setActiveFileIndex] = useState<number>(0);
+  const [batchMode, setBatchMode] = useState<boolean>(false);
+  
+  // Color customization state
   const [color, setColor] = useState<string>("#3B82F6");
+  const [multiColorMode, setMultiColorMode] = useState<boolean>(false);
+  const [colorMap, setColorMap] = useState<Record<string, string>>({});
+  
+  // Split view comparison state
+  const [showSplitView, setShowSplitView] = useState<boolean>(false);
+  
+  // Other state
   const [isTransparent, setIsTransparent] = useState<boolean>(false);
   const [conversionStatus, setConversionStatus] = useState<{
     status: "idle" | "loading" | "success" | "error";
@@ -45,19 +61,35 @@ export default function Home() {
           {/* Left Panel */}
           <div className="lg:col-span-7 space-y-6">
             <UploadArea 
-              setFile={setFile} 
+              setFile={setFile}
+              setFiles={setFiles}
+              setBatchMode={setBatchMode}
+              batchMode={batchMode}
               setConversionStatus={setConversionStatus}
               setSvgContent={setSvgContent}
+              setSvgContents={setSvgContents}
+              setActiveFileIndex={setActiveFileIndex}
               options={options}
             />
 
             <SVGPreview 
               svgContent={svgContent}
+              svgContents={svgContents}
+              batchMode={batchMode}
+              activeFileIndex={activeFileIndex}
+              setActiveFileIndex={setActiveFileIndex}
+              files={files}
               conversionStatus={conversionStatus}
               isTransparent={isTransparent}
               setIsTransparent={setIsTransparent}
               color={color}
               setColor={setColor}
+              multiColorMode={multiColorMode}
+              setMultiColorMode={setMultiColorMode}
+              colorMap={colorMap}
+              setColorMap={setColorMap}
+              showSplitView={showSplitView}
+              setShowSplitView={setShowSplitView}
             />
           </div>
 
