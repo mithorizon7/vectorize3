@@ -32,9 +32,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     upload.single("image"), 
     async (req, res) => {
       try {
+        console.log("Received conversion request");
+        
         if (!req.file) {
+          console.error("No file uploaded in request");
           return res.status(400).json({ error: "No image file uploaded" });
         }
+        
+        console.log("File details:", {
+          filename: req.file.filename,
+          originalname: req.file.originalname,
+          mimetype: req.file.mimetype,
+          size: req.file.size,
+          path: req.file.path
+        });
 
         // Convert form data strings to appropriate types
         const options = {
@@ -55,18 +66,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Get the file path from multer
         if (!req.file.path) {
+          console.error("File path missing in uploaded file");
           return res.status(400).json({ error: "No file path available" });
         }
         
+        // Verify the file exists
+        if (!fs.existsSync(req.file.path)) {
+          console.error(`File does not exist at path: ${req.file.path}`);
+          return res.status(400).json({ error: "File does not exist on server" });
+        }
+        
+        console.log(`Reading file from ${req.file.path}`);
         // Read the file for conversion
         const fileBuffer = fs.readFileSync(req.file.path);
+        console.log(`File buffer created, size: ${fileBuffer.length} bytes`);
         
         // Call the conversion function with the processed options
+        console.log("Starting SVG conversion...");
         const result = await convertImageToSVG(fileBuffer, options);
+        console.log(`Conversion complete, SVG length: ${result?.length || 0} characters`);
         
         // Sanitize SVG content for security
+        console.log("Sanitizing SVG content...");
         const sanitizedSvg = sanitizeSvgContent(result);
+        console.log(`Sanitization complete, final SVG length: ${sanitizedSvg?.length || 0} characters`);
         
+        if (!sanitizedSvg || sanitizedSvg.length === 0) {
+          console.error("SVG generation produced empty result");
+          return res.status(500).json({ error: "SVG generation failed - empty result" });
+        }
+        
+        console.log("Sending successful response with SVG data");
         res.status(200).json({ svg: sanitizedSvg });
       } catch (error) {
         console.error("Error in image conversion:", error);

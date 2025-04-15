@@ -1,4 +1,3 @@
-// @ts-ignore
 import * as potrace from 'potrace';
 import { JSDOM } from 'jsdom';
 import * as fs from 'fs';
@@ -125,36 +124,39 @@ export async function convertImageToSVG(
 async function traceImageFile(filePath: string, params: any): Promise<string> {
   return new Promise((resolve, reject) => {
     try {
-      console.log("Creating Potrace tracer with params:", JSON.stringify(params));
+      console.log("Creating Potrace tracer with simplified params");
+      
+      // Create Potrace instance
       const tracer = new potrace.Potrace();
       
-      // Configure the tracer with our params
-      Object.keys(params).forEach(key => {
-        if (key !== 'curveOptions') {
-          (tracer as any)[key] = params[key];
-        }
+      // Configure basic parameters
+      tracer.setParameters({
+        threshold: params.threshold || 128,
+        blackOnWhite: true,
+        optCurve: true,
+        turdSize: params.turdSize || 2,
+        alphaMax: params.alphaMax || 1.0,
+        optTolerance: params.optTolerance || 0.2
       });
       
-      // Handle curve options separately if they exist
-      if (params.curveOptions) {
-        Object.keys(params.curveOptions).forEach(key => {
-          (tracer as any)[key] = params.curveOptions[key];
-        });
-      }
+      console.log("Loading image with Potrace:", filePath);
       
-      console.log("Loading image from file:", filePath);
-      // Load the image from file
+      // Load the image
       tracer.loadImage(filePath, (err: any) => {
         if (err) {
           console.error("Error loading image with Potrace:", err);
-          return reject(new Error(`Error loading image: ${err.message || err}`));
+          return reject(new Error(`Failed to load image: ${err.message || err}`));
         }
         
-        console.log("Image loaded successfully, getting SVG");
-        // Get SVG string
-        const svg = tracer.getSVG();
-        console.log("SVG generated successfully, length:", svg?.length || 0);
-        resolve(svg);
+        try {
+          // Get the SVG string
+          const svg = tracer.getSVG();
+          console.log("SVG generated successfully, length:", svg?.length || 0);
+          resolve(svg);
+        } catch (svgErr) {
+          console.error("Error generating SVG:", svgErr);
+          reject(new Error(`Failed to generate SVG: ${svgErr}`));
+        }
       });
     } catch (err) {
       console.error("Error in traceImageFile:", err);

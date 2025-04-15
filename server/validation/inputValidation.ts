@@ -127,28 +127,67 @@ export function validateBackgroundInput(req: Request, res: Response, next: NextF
  * Sanitize SVG content to prevent XSS attacks
  */
 export function sanitizeSvgContent(svg: string): string {
-  // Configure specific options for SVG sanitization
-  const sanitizeOptions = {
-    USE_PROFILES: { svg: true, svgFilters: true },
-    ADD_ATTR: ['target', 'xlink:show'],
-    ALLOWED_TAGS: [
-      'svg', 'g', 'path', 'rect', 'circle', 'ellipse', 'line', 'polyline', 
-      'polygon', 'text', 'tspan', 'defs', 'clipPath', 'mask', 'pattern',
-      'linearGradient', 'radialGradient', 'stop', 'filter', 'feGaussianBlur',
-      'feOffset', 'feBlend', 'feColorMatrix', 'title', 'desc'
-    ],
-    ALLOWED_ATTR: [
-      'viewBox', 'width', 'height', 'xmlns', 'xmlns:xlink', 'version',
-      'x', 'y', 'cx', 'cy', 'r', 'rx', 'ry', 'd', 'transform',
-      'fill', 'fill-opacity', 'fill-rule', 'stroke', 'stroke-width',
-      'stroke-linecap', 'stroke-linejoin', 'stroke-opacity', 'stroke-dasharray',
-      'stroke-dashoffset', 'opacity', 'points', 'x1', 'y1', 'x2', 'y2',
-      'offset', 'stop-color', 'stop-opacity', 'gradientUnits', 'gradientTransform',
-      'font-family', 'font-size', 'text-anchor', 'dominant-baseline',
-      'clip-path', 'clip-rule', 'vector-effect', 'preserveAspectRatio',
-      'mask', 'filter', 'id', 'class', 'style'
-    ]
-  };
+  if (!svg) {
+    console.warn("Attempting to sanitize empty or null SVG content");
+    return "";
+  }
+  
+  console.log("Original SVG length before sanitization:", svg.length);
+  
+  // Basic validation to ensure it contains SVG content
+  if (!svg.includes("<svg") || !svg.includes("</svg>")) {
+    console.error("Invalid SVG format - missing svg tags");
+    return svg; // Return as is for debugging
+  }
+  
+  try {
+    // Configure specific options for SVG sanitization - more permissive options
+    const sanitizeOptions = {
+      USE_PROFILES: { svg: true, svgFilters: true },
+      ADD_TAGS: ['svg', 'g', 'path', 'rect', 'circle', 'ellipse'],
+      ADD_ATTR: [
+        'target', 'xlink:show', 'xlink:href', 'xmlns', 'viewBox',
+        'width', 'height', 'version', 'preserveAspectRatio',
+      ],
+      ALLOW_UNKNOWN_PROTOCOLS: true,
+      ALLOWED_TAGS: [
+        'svg', 'g', 'path', 'rect', 'circle', 'ellipse', 'line', 'polyline', 
+        'polygon', 'text', 'tspan', 'defs', 'clipPath', 'mask', 'pattern',
+        'linearGradient', 'radialGradient', 'stop', 'filter', 'feGaussianBlur',
+        'feOffset', 'feBlend', 'feColorMatrix', 'feComposite', 'feFlood',
+        'feMerge', 'feMergeNode', 'title', 'desc', 'metadata', 'image'
+      ],
+      ALLOWED_ATTR: [
+        'viewBox', 'width', 'height', 'xmlns', 'xmlns:xlink', 'version',
+        'x', 'y', 'cx', 'cy', 'r', 'rx', 'ry', 'd', 'transform',
+        'fill', 'fill-opacity', 'fill-rule', 'stroke', 'stroke-width',
+        'stroke-linecap', 'stroke-linejoin', 'stroke-opacity', 'stroke-dasharray',
+        'stroke-dashoffset', 'opacity', 'points', 'x1', 'y1', 'x2', 'y2',
+        'offset', 'stop-color', 'stop-opacity', 'gradientUnits', 'gradientTransform',
+        'font-family', 'font-size', 'text-anchor', 'dominant-baseline',
+        'clip-path', 'clip-rule', 'vector-effect', 'preserveAspectRatio',
+        'mask', 'filter', 'id', 'class', 'style', 'patternUnits', 'patternTransform',
+        'in', 'in2', 'result', 'stdDeviation', 'dx', 'dy', 'mode', 'type',
+        'values', 'xlink:href', 'href', 'target', 'xmlns:svg', 'xmlns:xhtml',
+        'markerWidth', 'markerHeight', 'refX', 'refY', 'orient', 'markerUnits'
+      ]
+    };
 
-  return purify.sanitize(svg, sanitizeOptions);
+    const sanitized = purify.sanitize(svg, sanitizeOptions);
+    console.log("Sanitized SVG length:", sanitized.length);
+    
+    // If sanitizing removed too much content (more than 20%), this might indicate a problem
+    if (sanitized.length < svg.length * 0.8) {
+      console.warn("Significant content removed during sanitization", {
+        original: svg.length,
+        sanitized: sanitized.length,
+        percentRemoved: 100 - (sanitized.length / svg.length * 100)
+      });
+    }
+    
+    return sanitized;
+  } catch (error) {
+    console.error("Error during SVG sanitization:", error);
+    return svg; // Return original content for debugging
+  }
 }
