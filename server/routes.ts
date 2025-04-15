@@ -1,5 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
+import { Server as SocketIOServer } from "socket.io";
 import * as fs from "fs";
 import { storage } from "./storage";
 import { convertImageToSVG, applySvgColor, setTransparentBackground } from "./conversion/svg-converter";
@@ -19,12 +20,53 @@ import {
   validateBackgroundInput,
   sanitizeSvgContent
 } from "./validation/inputValidation";
+import { queueController } from "./queue/controller";
+import { initializeJobProcessors, setSocketServer } from "./queue/processor";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Apply global security middleware
   app.use(securityHeaders);
   app.use(apiLimiter);
   app.use(cleanupTempFiles);
+  
+  // Create HTTP server for both Express and Socket.IO
+  const httpServer = createServer(app);
+  
+  // Create Socket.IO server
+  const io = new SocketIOServer(httpServer, {
+    cors: {
+      origin: "*", // Allow all origins for development, restrict in production
+      methods: ["GET", "POST"]
+    }
+  });
+  
+  // Set up Socket.IO connection handler
+  io.on('connection', (socket) => {
+    console.log('WebSocket client connected');
+    
+    // Handle client subscription to job progress
+    socket.on('subscribe:job', (jobId) => {
+      socket.join(`job:${jobId}`);
+      console.log(`Client subscribed to job ${jobId}`);
+    });
+    
+    // Handle client unsubscription from job progress
+    socket.on('unsubscribe:job', (jobId) => {
+      socket.leave(`job:${jobId}`);
+      console.log(`Client unsubscribed from job ${jobId}`);
+    });
+    
+    // Handle disconnection
+    socket.on('disconnect', () => {
+      console.log('WebSocket client disconnected');
+    });
+  });
+  
+  // Set the socket server in the processor
+  setSocketServer(io);
+  
+  // Initialize job processors
+  initializeJobProcessors();
   
   // Endpoint for image to SVG conversion with stricter rate limiting
   app.post(
@@ -239,6 +281,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Error handling middleware should be registered last
   app.use(errorHandler);
   
-  const httpServer = createServer(app);
+  // Add queue-based API routes
+  app.post('/api/queue/convert', conversionLimiter, upload.single('image'), queueController.queueConversion);
+  app.post('/api/queue/batch', conversionLimiter, upload.array('images', 20), queueController.queueBatchConversion);
+  app.post('/api/queue/color', validateColorInput, queueController.queueColorApplication);
+  app.post('/api/queue/background', validateBackgroundInput, queueController.queueBackgroundSetting);
+  app.get('/api/queue/job/:jobId', queueController.getJobStatus);
+  
   return httpServer;
 }

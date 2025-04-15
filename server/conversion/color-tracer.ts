@@ -1,8 +1,13 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
-const ImageTracer = require('imagetracer');
 import { JSDOM } from 'jsdom';
+// Use dynamic import for imagetracer since it's a dual module (supports CJS and ESM)
+// This is a workaround for the "require is not defined in ES module scope" error
+let ImageTracer: any = null;
+import('imagetracer').then(module => {
+  ImageTracer = module.default || module;
+});
 
 // Define the interface to accept all options from the client but only use what we need
 export interface ColorTracingOptions {
