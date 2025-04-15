@@ -39,13 +39,11 @@ export default function AdvancedColorCustomizer({
         p.colorSettings?.recommendedPalette && p.colorSettings.recommendedPalette.length > 0
       );
       
-      if (suitablePreset?.colorSettings?.recommendedPalette) {
+      if (suitablePreset && suitablePreset.colorSettings && suitablePreset.colorSettings.recommendedPalette) {
         setSuggestedPalettes(prev => {
           return {
             ...prev,
-            recommended: suitablePreset.colorSettings.recommendedPalette
-              ? [...suitablePreset.colorSettings.recommendedPalette]
-              : []
+            recommended: [...suitablePreset.colorSettings.recommendedPalette]
           };
         });
       }
