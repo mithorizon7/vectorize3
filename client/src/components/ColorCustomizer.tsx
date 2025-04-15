@@ -45,20 +45,26 @@ export default function ColorCustomizer({
   };
   
   return (
-    <div className="px-6 py-4">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-medium">Color Customization</h3>
-        <div className="flex items-center space-x-2">
-          <div 
-            className="w-6 h-6 rounded-full border border-gray-300" 
-            style={{ backgroundColor: color }}
-          ></div>
-          <input
-            type="color"
-            value={color}
-            onChange={(e) => handleColorChange(e.target.value)}
-            className="w-8 h-8 cursor-pointer"
-          />
+    <div className="p-4 border rounded-lg bg-white">
+      <div className="flex flex-col mb-4">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-medium">Color Customization</h3>
+          <div className="flex items-center space-x-2">
+            <div 
+              className="w-8 h-8 rounded-full border border-gray-300 shadow-sm" 
+              style={{ backgroundColor: color }}
+            ></div>
+            <input
+              type="color"
+              value={color}
+              onChange={(e) => handleColorChange(e.target.value)}
+              className="w-10 h-10 cursor-pointer"
+              aria-label="Select custom color"
+            />
+          </div>
+        </div>
+        <div className="bg-blue-50 border border-blue-100 rounded-md p-3 mt-1 text-xs text-blue-800">
+          <p>Changes made here are immediately applied to the SVG preview above. Try different colors!</p>
         </div>
       </div>
       

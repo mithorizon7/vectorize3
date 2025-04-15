@@ -56,18 +56,28 @@ export default function SVGPreview({
 }: SVGPreviewProps) {
   const [copied, setCopied] = useState(false);
   const [activeSvg, setActiveSvg] = useState<string | null>(null);
+  const [originalSvg, setOriginalSvg] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("preview");
   const [codeView, setCodeView] = useState(false);
   const [detectedColors, setDetectedColors] = useState<string[]>([]);
   const [previewScale, setPreviewScale] = useState(1);
+  const [preserveOriginalColors, setPreserveOriginalColors] = useState(false);
   const { toast } = useToast();
 
   // Determine which SVG content to display
   useEffect(() => {
+    let svg;
     if (batchMode) {
-      setActiveSvg(svgContents[activeFileIndex] || null);
+      svg = svgContents[activeFileIndex] || null;
     } else {
-      setActiveSvg(svgContent);
+      svg = svgContent;
+    }
+    
+    setActiveSvg(svg);
+    
+    // Store the original SVG for later use (to preserve original colors)
+    if (svg && !originalSvg) {
+      setOriginalSvg(svg);
     }
     
     // Log detailed information about SVG content
@@ -162,6 +172,37 @@ export default function SVGPreview({
 
   const toggleSplitView = () => {
     setShowSplitView(!showSplitView);
+  };
+  
+  const togglePreserveOriginalColors = () => {
+    const newValue = !preserveOriginalColors;
+    setPreserveOriginalColors(newValue);
+    
+    if (newValue && originalSvg) {
+      // Restore the original SVG with all its colors
+      setActiveSvg(originalSvg);
+    } else if (!newValue && originalSvg) {
+      // Apply current color settings
+      if (multiColorMode) {
+        // If in multi-color mode, reapply the color mapping
+        let coloredSvg = originalSvg;
+        Object.keys(colorMap).forEach(originalColor => {
+          const newColor = colorMap[originalColor];
+          const regex = new RegExp(originalColor, 'g');
+          coloredSvg = coloredSvg.replace(regex, newColor);
+        });
+        setActiveSvg(coloredSvg);
+      } else {
+        // In single color mode, apply the selected color to all fill attributes
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(originalSvg, 'image/svg+xml');
+        const elements = doc.querySelectorAll('[fill]');
+        elements.forEach(el => {
+          el.setAttribute('fill', color);
+        });
+        setActiveSvg(new XMLSerializer().serializeToString(doc));
+      }
+    }
   };
 
   const resetZoom = () => {
@@ -294,13 +335,22 @@ export default function SVGPreview({
                   ) : activeSvg ? (
                     <>
                       <div 
-                        className="svg-container max-w-full max-h-full p-4 cursor-move transition-transform duration-200"
+                        className="svg-container w-full h-full flex items-center justify-center p-4 cursor-move transition-transform duration-200 overflow-hidden"
                         style={{ 
-                          transform: `scale(${previewScale})`,
                           background: isTransparent ? 'transparent' : '#ffffff'
                         }}
-                        dangerouslySetInnerHTML={{ __html: activeSvg }}
-                      />
+                      >
+                        <div
+                          className="transform-gpu transition-transform duration-200"
+                          style={{ 
+                            transform: `scale(${previewScale})`,
+                            maxWidth: '100%',
+                            maxHeight: '100%',
+                            objectFit: 'contain'
+                          }}
+                          dangerouslySetInnerHTML={{ __html: activeSvg }}
+                        />
+                      </div>
                       <div className="absolute bottom-2 right-2 flex space-x-1">
                         <Badge variant="secondary" className="text-xs">SVG</Badge>
                         {isTransparent && (
@@ -353,7 +403,7 @@ export default function SVGPreview({
         {activeSvg && (
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 flex-wrap">
                 <div className="flex items-center">
                   <Switch
                     id="transparent-bg"
@@ -363,15 +413,39 @@ export default function SVGPreview({
                   />
                   <Label htmlFor="transparent-bg" className="cursor-pointer">Transparent Background</Label>
                 </div>
-                <Separator orientation="vertical" className="h-6" />
+                <Separator orientation="vertical" className="h-6 hidden sm:block" />
+                
+                <div className="flex items-center">
+                  <Switch
+                    id="preserve-colors"
+                    checked={preserveOriginalColors}
+                    onCheckedChange={togglePreserveOriginalColors}
+                    className="mr-2"
+                  />
+                  <Label htmlFor="preserve-colors" className="cursor-pointer flex items-center">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="mr-1">
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M12 8v8" />
+                      <path d="M8 12h8" />
+                    </svg>
+                    Preserve Original Colors
+                  </Label>
+                </div>
+
+                <Separator orientation="vertical" className="h-6 hidden sm:block" />
+                
                 <div className="flex items-center">
                   <Switch
                     id="multi-color"
                     checked={multiColorMode}
                     onCheckedChange={toggleMultiColorMode}
                     className="mr-2"
+                    disabled={preserveOriginalColors}
                   />
-                  <Label htmlFor="multi-color" className="cursor-pointer flex items-center">
+                  <Label 
+                    htmlFor="multi-color" 
+                    className={`cursor-pointer flex items-center ${preserveOriginalColors ? 'opacity-50' : ''}`}
+                  >
                     <Palette className="h-4 w-4 mr-1" />
                     Multi-Color Mode
                   </Label>
