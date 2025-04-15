@@ -7,6 +7,77 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { X } from "lucide-react";
 
+// Create a utility function to process file conversion that can be imported by other components
+export async function convertImageWithOptions(
+  file: File,
+  options: SVGOptions,
+  setConversionStatus: Dispatch<SetStateAction<{
+    status: "idle" | "loading" | "success" | "error";
+    message: string;
+  }>>,
+  isBatch = false,
+  fileIndex = 0,
+  batchLength = 1
+): Promise<string | null> {
+  // Set detailed loading status for better UX
+  setConversionStatus({
+    status: "loading",
+    message: isBatch 
+      ? `Converting ${fileIndex + 1} of ${batchLength}${file.name ? ` (${file.name})` : ''}...` 
+      : `Transforming ${file.name || 'image'} to vector graphics...`,
+  });
+
+  try {
+    const formData = new FormData();
+    formData.append('image', file);
+    
+    // Add conversion options to formData
+    Object.entries(options).forEach(([key, value]) => {
+      if (typeof value === 'boolean') {
+        formData.append(key, value.toString());
+      } else if (Array.isArray(value)) {
+        formData.append(key, value.join(','));
+      } else {
+        formData.append(key, value.toString());
+      }
+    });
+
+    const response = await fetch('/api/convert', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `Error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    
+    console.log("Received SVG data:", !!data.svg, data.svg ? data.svg.substring(0, 100) + "..." : "No SVG data");
+    
+    // Provide more descriptive success messages
+    setConversionStatus({
+      status: "success",
+      message: isBatch 
+        ? `Converted ${fileIndex + 1} of ${batchLength}${file.name ? ` (${file.name})` : ''}` 
+        : `SVG ready${file.name ? ` (${file.name.split('.')[0]}.svg)` : ''}`,
+    });
+    
+    return data.svg;
+  } catch (error) {
+    console.error('Error converting image:', error);
+    // Enhanced error messages for better user feedback
+    setConversionStatus({
+      status: "error",
+      message: error instanceof Error 
+        ? error.message 
+        : "An unexpected error occurred during conversion.",
+    });
+    return null;
+  }
+}
+
 interface UploadAreaProps {
   setFile: Dispatch<SetStateAction<File | null>>;
   setFiles: Dispatch<SetStateAction<File[]>>;
@@ -133,60 +204,26 @@ export default function UploadArea({
       setFile(file);
     }
     
-    // Set detailed loading status for better UX
-    setConversionStatus({
-      status: "loading",
-      message: isBatch 
-        ? `Converting ${fileIndex + 1} of ${selectedFiles.length}${file.name ? ` (${file.name})` : ''}...` 
-        : `Transforming ${file.name || 'image'} to vector graphics...`,
-    });
-
-    try {
-      const formData = new FormData();
-      formData.append('image', file);
-      
-      // Add conversion options to formData
-      Object.entries(options).forEach(([key, value]) => {
-        if (typeof value === 'boolean') {
-          formData.append(key, value.toString());
-        } else if (Array.isArray(value)) {
-          formData.append(key, value.join(','));
-        } else {
-          formData.append(key, value.toString());
-        }
-      });
-
-      const response = await fetch('/api/convert', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Error: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      
-      console.log("Received SVG data:", !!data.svg, data.svg ? data.svg.substring(0, 100) + "..." : "No SVG data");
-      
+    // Use the shared utility function for conversion
+    const svgData = await convertImageWithOptions(
+      file,
+      options,
+      setConversionStatus,
+      isBatch,
+      fileIndex,
+      selectedFiles.length
+    );
+    
+    if (svgData) {
       if (isBatch) {
         setSvgContents(prev => {
           const newContents = [...prev];
-          newContents[fileIndex] = data.svg;
+          newContents[fileIndex] = svgData;
           return newContents;
         });
       } else {
-        setSvgContent(data.svg);
+        setSvgContent(svgData);
       }
-      
-      // Provide more descriptive success messages
-      setConversionStatus({
-        status: "success",
-        message: isBatch 
-          ? `Converted ${fileIndex + 1} of ${selectedFiles.length}${file.name ? ` (${file.name})` : ''}` 
-          : `SVG ready${file.name ? ` (${file.name.split('.')[0]}.svg)` : ''}`,
-      });
       
       // Process next file in batch if there are more
       if (isBatch && fileIndex < selectedFiles.length - 1) {
@@ -194,18 +231,11 @@ export default function UploadArea({
           processFile(selectedFiles[fileIndex + 1], fileIndex + 1, true);
         }, 100);
       }
-    } catch (error) {
-      console.error('Error converting image:', error);
-      // Enhanced error messages for better user feedback
-      setConversionStatus({
-        status: "error",
-        message: isBatch 
-          ? `Failed to convert ${file.name || `file ${fileIndex + 1}`} of ${selectedFiles.length}` 
-          : `Unable to process ${file.name || 'image'} - please try a different image or format`,
-      });
+    } else {
+      // The error handling is already done in the utility function
       toast({
         title: "Conversion failed",
-        description: error instanceof Error ? error.message : "An unknown error occurred",
+        description: "Please try again with a different image or settings",
         variant: "destructive",
       });
     }

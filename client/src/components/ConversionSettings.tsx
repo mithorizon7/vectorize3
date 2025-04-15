@@ -25,11 +25,16 @@ import {
 interface ConversionSettingsProps {
   options: SVGOptions;
   setOptions: Dispatch<SetStateAction<SVGOptions>>;
+  // Add properties needed for real-time conversion
+  currentFile?: File | null;
+  onSettingsChange?: () => void;
 }
 
 export default function ConversionSettings({
   options,
   setOptions,
+  currentFile,
+  onSettingsChange,
 }: ConversionSettingsProps) {
   const [activePreset, setActivePreset] = useState<string | null>(null);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
