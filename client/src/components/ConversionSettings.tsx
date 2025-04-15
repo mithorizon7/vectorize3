@@ -254,7 +254,7 @@ export default function ConversionSettings({
 
             {/* Group By Options */}
             <div className="px-6 py-4">
-              <h3 className="text-sm font-medium mb-3">Group By</h3>
+              <SettingHeader settingId="groupBy" />
               <RadioGroup
                 value={options.groupBy}
                 onValueChange={(value) => updateOption("groupBy", value)}
@@ -283,7 +283,7 @@ export default function ConversionSettings({
           <TabsContent value="paths" className="space-y-4">
             {/* Line Fit Tolerance Options */}
             <div className="px-6 py-4">
-              <h3 className="text-sm font-medium mb-3">Line Fit Tolerance</h3>
+              <SettingHeader settingId="lineFit" />
               <RadioGroup
                 value={options.lineFit}
                 onValueChange={(value) => updateOption("lineFit", value)}
@@ -310,7 +310,7 @@ export default function ConversionSettings({
 
             {/* Curve Type Options */}
             <div className="px-6 py-4">
-              <h3 className="text-sm font-medium mb-3">Allowed Curve Types</h3>
+              <SettingHeader settingId="allowedCurveTypes" />
               <div className="space-y-2">
                 <div className="flex items-center space-x-2">
                   <Checkbox
@@ -357,7 +357,44 @@ export default function ConversionSettings({
 
             {/* Gap Filler Options */}
             <div className="px-6 py-4">
-              <h3 className="text-sm font-medium mb-3">Gap Filler</h3>
+              <div className="flex items-center mb-3">
+                <h3 className="text-sm font-medium">Gap Filler</h3>
+                <div className="flex space-x-1">
+                  <SettingInfoTooltip 
+                    content={
+                      <div>
+                        <p>{settingsHelpText.fillGaps.description}</p>
+                        {settingsHelpText.fillGaps.tips && (
+                          <div className="mt-2">{settingsHelpText.fillGaps.tips}</div>
+                        )}
+                      </div>
+                    } 
+                    width="narrow"
+                  />
+                  <SettingInfoTooltip 
+                    content={
+                      <div>
+                        <p>{settingsHelpText.clipOverflow.description}</p>
+                        {settingsHelpText.clipOverflow.tips && (
+                          <div className="mt-2">{settingsHelpText.clipOverflow.tips}</div>
+                        )}
+                      </div>
+                    } 
+                    width="narrow"
+                  />
+                  <SettingInfoTooltip 
+                    content={
+                      <div>
+                        <p>{settingsHelpText.strokeWidth.description}</p>
+                        {settingsHelpText.strokeWidth.tips && (
+                          <div className="mt-2">{settingsHelpText.strokeWidth.tips}</div>
+                        )}
+                      </div>
+                    } 
+                    width="narrow"
+                  />
+                </div>
+              </div>
               <div className="space-y-2">
                 <div className="flex items-center space-x-2">
                   <Checkbox
