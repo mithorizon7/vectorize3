@@ -1,5 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
+import * as fs from "fs";
 import { storage } from "./storage";
 import { convertImageToSVG, applySvgColor, setTransparentBackground } from "./conversion/svg-converter";
 import { 
@@ -52,8 +53,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         console.log("Processing conversion with options:", options);
         
+        // Get the file path from multer
+        if (!req.file.path) {
+          return res.status(400).json({ error: "No file path available" });
+        }
+        
+        // Read the file for conversion
+        const fileBuffer = fs.readFileSync(req.file.path);
+        
         // Call the conversion function with the processed options
-        const result = await convertImageToSVG(req.file.buffer, options);
+        const result = await convertImageToSVG(fileBuffer, options);
         
         // Sanitize SVG content for security
         const sanitizedSvg = sanitizeSvgContent(result);
