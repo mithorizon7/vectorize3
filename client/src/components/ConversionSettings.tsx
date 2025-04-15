@@ -119,7 +119,7 @@ export default function ConversionSettings({
           Customize how your image is transformed into SVG
         </p>
         <div className="mt-2 p-2 bg-blue-50 border border-blue-100 rounded text-xs text-blue-800">
-          ✨ Changes will update the preview in real-time when an image is loaded
+          ✨ Changes will trigger immediate re-conversion and update the preview when an image is loaded
         </div>
       </CardContent>
 
