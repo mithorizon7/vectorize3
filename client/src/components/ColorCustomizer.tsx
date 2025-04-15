@@ -63,8 +63,25 @@ export default function ColorCustomizer({
             />
           </div>
         </div>
-        <div className="bg-blue-50 border border-blue-100 rounded-md p-3 mt-1 text-xs text-blue-800">
-          <p>Changes made here are immediately applied to the SVG preview above. Try different colors!</p>
+        <div className="bg-blue-50 border border-blue-100 rounded-md p-3 mt-1 text-xs text-blue-800 space-y-2">
+          <div className="flex items-start">
+            <svg className="h-4 w-4 mr-2 mt-0.5 text-blue-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="flex-1">Changes are <span className="font-medium">immediately applied</span> to the SVG preview above.</p>
+          </div>
+          <div className="flex items-start">
+            <svg className="h-4 w-4 mr-2 mt-0.5 text-blue-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+            </svg>
+            <p className="flex-1">Click the color wheel, select preset colors below, or enter a hex value.</p>
+          </div>
+          <div className="flex items-start">
+            <svg className="h-4 w-4 mr-2 mt-0.5 text-blue-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+            <p className="flex-1">Use "Preserve Original Colors" switch above to keep the original image colors.</p>
+          </div>
         </div>
       </div>
       

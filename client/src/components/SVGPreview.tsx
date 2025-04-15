@@ -73,11 +73,20 @@ export default function SVGPreview({
       svg = svgContent;
     }
     
-    setActiveSvg(svg);
-    
     // Store the original SVG for later use (to preserve original colors)
     if (svg && !originalSvg) {
       setOriginalSvg(svg);
+      
+      // If "preserve original colors" is enabled, use the original SVG
+      if (preserveOriginalColors) {
+        setActiveSvg(svg);
+      } else {
+        setActiveSvg(svg);
+      }
+    } else {
+      // Only update the active SVG if "preserve original colors" is not enabled
+      // or if we're intentionally resetting to the original colors
+      setActiveSvg(svg);
     }
     
     // Log detailed information about SVG content
@@ -341,15 +350,19 @@ export default function SVGPreview({
                         }}
                       >
                         <div
-                          className="transform-gpu transition-transform duration-200"
+                          className="transform-gpu transition-transform duration-200 flex items-center justify-center"
                           style={{ 
                             transform: `scale(${previewScale})`,
-                            maxWidth: '100%',
-                            maxHeight: '100%',
-                            objectFit: 'contain'
+                            width: '100%',
+                            height: '100%'
                           }}
-                          dangerouslySetInnerHTML={{ __html: activeSvg }}
-                        />
+                        >
+                          <div 
+                            className="max-w-full max-h-full svg-content"
+                            style={{ height: 'auto', width: 'auto', maxWidth: '100%', maxHeight: '100%' }}
+                            dangerouslySetInnerHTML={{ __html: activeSvg }}
+                          />
+                        </div>
                       </div>
                       <div className="absolute bottom-2 right-2 flex space-x-1">
                         <Badge variant="secondary" className="text-xs">SVG</Badge>
