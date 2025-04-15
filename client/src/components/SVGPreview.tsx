@@ -121,6 +121,18 @@ export default function SVGPreview({
       }
     }
   }, [activeSvg, multiColorMode]);
+  
+  // Update SVG when color changes or relevant parameters update
+  useEffect(() => {
+    if (!originalSvg || !activeSvg) return;
+    
+    // Don't apply color changes if we want to preserve original colors
+    if (preserveOriginalColors) return;
+    
+    // Apply the current color settings using our helper function
+    applyColorSettings(preserveOriginalColors);
+    
+  }, [color, multiColorMode, colorMap]);
 
   const handleDownload = () => {
     if (!activeSvg) return;
@@ -187,10 +199,17 @@ export default function SVGPreview({
     const newValue = !preserveOriginalColors;
     setPreserveOriginalColors(newValue);
     
-    if (newValue && originalSvg) {
+    applyColorSettings(newValue);
+  };
+  
+  // Apply current color settings based on preserve mode 
+  const applyColorSettings = (preserveColors: boolean) => {
+    if (!originalSvg) return;
+    
+    if (preserveColors) {
       // Restore the original SVG with all its colors
       setActiveSvg(originalSvg);
-    } else if (!newValue && originalSvg) {
+    } else {
       // Apply current color settings
       if (multiColorMode) {
         // If in multi-color mode, reapply the color mapping

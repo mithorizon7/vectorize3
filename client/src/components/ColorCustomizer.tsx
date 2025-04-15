@@ -37,11 +37,27 @@ export default function ColorCustomizer({
   const handleColorChange = (newColor: string) => {
     setCustomColor(newColor);
     setColor(newColor);
+    
+    // Apply the color change to the SVG immediately
+    applyColorToSVG(newColor);
   };
   
   const handlePresetClick = (preset: string) => {
     setColor(preset);
     setCustomColor(preset);
+    
+    // Apply the color change to the SVG immediately
+    applyColorToSVG(preset);
+  };
+  
+  // Helper function to apply color changes to the SVG preview
+  const applyColorToSVG = (selectedColor: string) => {
+    // Handle SVG coloring directly through parent component callback
+    if (onModeChange) {
+      // This is a signal to the parent that we're changing colors
+      // The parent can use this to apply colors immediately
+      onModeChange(false);
+    }
   };
   
   return (
