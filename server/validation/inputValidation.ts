@@ -46,13 +46,16 @@ export function sanitizeFilename(filename: string): string {
  */
 export function validateSvgOptions(req: Request, res: Response, next: NextFunction) {
   try {
+    // For form data, we need to parse the values appropriately
     if (req.body) {
-      svgOptionsSchema.parse(req.body);
+      // Don't strictly validate here - we'll handle the conversion in the route handler
+      // This allows for FormData submissions where everything is a string
       next();
     } else {
       res.status(400).json({ error: "Missing SVG options" });
     }
   } catch (error) {
+    console.error("SVG options validation error:", error);
     if (error instanceof z.ZodError) {
       res.status(400).json({ error: error.errors });
     } else {

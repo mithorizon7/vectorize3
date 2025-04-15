@@ -43,11 +43,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           shapeStacking: req.body.shapeStacking,
           groupBy: req.body.groupBy,
           lineFit: req.body.lineFit,
-          allowedCurveTypes: req.body.allowedCurveTypes,
-          fillGaps: req.body.fillGaps,
-          clipOverflow: req.body.clipOverflow,
-          nonScalingStroke: req.body.nonScalingStroke,
-          strokeWidth: req.body.strokeWidth,
+          allowedCurveTypes: Array.isArray(req.body.allowedCurveTypes) 
+            ? req.body.allowedCurveTypes 
+            : req.body.allowedCurveTypes?.split(',') || [],
+          fillGaps: req.body.fillGaps === 'true',
+          clipOverflow: req.body.clipOverflow === 'true',
+          nonScalingStroke: req.body.nonScalingStroke === 'true',
+          strokeWidth: parseFloat(req.body.strokeWidth) || 0.5,
         };
 
         const result = await convertImageToSVG(req.file.buffer, options);
