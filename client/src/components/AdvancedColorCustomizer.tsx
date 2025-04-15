@@ -1,14 +1,14 @@
 import { useState, useEffect, Dispatch, SetStateAction } from "react";
-import { HexColorPicker } from "react-colorful";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Palette, Pipette, Plus, X, Copy, CheckCheck } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { HexColorPicker } from "react-colorful";
 import { presets } from "@/lib/conversion-presets";
+import { Copy, CheckCheck, Pipette, Palette, Plus } from "lucide-react";
 
 interface AdvancedColorCustomizerProps {
   colorMap: Record<string, string>;
@@ -19,7 +19,7 @@ interface AdvancedColorCustomizerProps {
 export default function AdvancedColorCustomizer({
   colorMap,
   setColorMap,
-  detectedColors,
+  detectedColors
 }: AdvancedColorCustomizerProps) {
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [currentHexValue, setCurrentHexValue] = useState("#000000");
@@ -269,7 +269,7 @@ export default function AdvancedColorCustomizer({
                 </TabsList>
                 
                 <TabsContent value="recommended" className="mt-0 space-y-4">
-                  {suggestedPalettes.recommended ? (
+                  {suggestedPalettes.recommended.length > 0 ? (
                     <ColorPalette 
                       colors={suggestedPalettes.recommended} 
                       title="Recommended Colors" 

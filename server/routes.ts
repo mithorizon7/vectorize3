@@ -14,7 +14,8 @@ import {
   sanitizeFilename,
   validateSvgOptions,
   validateColorInput,
-  validateBackgroundInput 
+  validateBackgroundInput,
+  sanitizeSvgContent
 } from "./validation/inputValidation";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -28,38 +29,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     "/api/convert", 
     conversionLimiter, 
     upload.single("image"), 
-    validateSvgOptions,
-    async (req, res, next) => {
+    async (req, res) => {
       try {
         if (!req.file) {
           return res.status(400).json({ error: "No image file uploaded" });
         }
 
-        // Convert the image to SVG using validated options from middleware
+        // Convert form data strings to appropriate types
         const options = {
-          fileFormat: req.body.fileFormat,
-          svgVersion: req.body.svgVersion,
-          drawStyle: req.body.drawStyle,
-          shapeStacking: req.body.shapeStacking,
-          groupBy: req.body.groupBy,
-          lineFit: req.body.lineFit,
-          allowedCurveTypes: Array.isArray(req.body.allowedCurveTypes) 
-            ? req.body.allowedCurveTypes 
-            : req.body.allowedCurveTypes?.split(',') || [],
+          fileFormat: req.body.fileFormat || "svg",
+          svgVersion: req.body.svgVersion || "1.1",
+          drawStyle: req.body.drawStyle || "fill",
+          shapeStacking: req.body.shapeStacking || "stacked",
+          groupBy: req.body.groupBy || "color",
+          lineFit: req.body.lineFit || "default",
+          allowedCurveTypes: req.body.allowedCurveTypes?.split(',') || ["all"],
           fillGaps: req.body.fillGaps === 'true',
           clipOverflow: req.body.clipOverflow === 'true',
           nonScalingStroke: req.body.nonScalingStroke === 'true',
           strokeWidth: parseFloat(req.body.strokeWidth) || 0.5,
         };
 
+        console.log("Processing conversion with options:", options);
+        
+        // Call the conversion function with the processed options
         const result = await convertImageToSVG(req.file.buffer, options);
         
-        // Record conversion stats in database (can be implemented later)
-        // await recordConversion(req.file.originalname, req.file.size);
+        // Sanitize SVG content for security
+        const sanitizedSvg = sanitizeSvgContent(result);
         
-        res.status(200).json({ svg: result });
+        res.status(200).json({ svg: sanitizedSvg });
       } catch (error) {
-        next(error);
+        console.error("Error in image conversion:", error);
+        
+        if (error instanceof Error) {
+          return res.status(400).json({ 
+            error: "Failed to convert image", 
+            details: error.message 
+          });
+        }
+        
+        return res.status(500).json({ 
+          error: "An unexpected error occurred during conversion" 
+        });
       }
     }
   );
@@ -68,13 +80,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post(
     "/api/color", 
     validateColorInput, 
-    async (req, res, next) => {
+    async (req, res) => {
       try {
         const { svg, color } = req.body;
         const result = await applySvgColor(svg, color);
-        res.status(200).json({ svg: result });
+        res.status(200).json({ svg: sanitizeSvgContent(result) });
       } catch (error) {
-        next(error);
+        console.error("Error applying color:", error);
+        
+        if (error instanceof Error) {
+          return res.status(400).json({ 
+            error: "Failed to apply color", 
+            details: error.message 
+          });
+        }
+        
+        return res.status(500).json({ 
+          error: "An unexpected error occurred while applying color" 
+        });
       }
     }
   );
@@ -83,13 +106,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post(
     "/api/background", 
     validateBackgroundInput, 
-    async (req, res, next) => {
+    async (req, res) => {
       try {
-        const { svg, transparent } = req.body;
-        const result = await setTransparentBackground(svg, transparent);
-        res.status(200).json({ svg: result });
+        const { svg, isTransparent } = req.body;
+        const result = await setTransparentBackground(svg, isTransparent);
+        res.status(200).json({ svg: sanitizeSvgContent(result) });
       } catch (error) {
-        next(error);
+        console.error("Error setting background:", error);
+        
+        if (error instanceof Error) {
+          return res.status(400).json({ 
+            error: "Failed to set background transparency", 
+            details: error.message 
+          });
+        }
+        
+        return res.status(500).json({ 
+          error: "An unexpected error occurred while setting background" 
+        });
       }
     }
   );

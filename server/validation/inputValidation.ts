@@ -4,32 +4,52 @@ import DOMPurify from "dompurify";
 import { JSDOM } from "jsdom";
 import path from "path";
 
-// Initialize DOMPurify with JSDOM
-const window = new JSDOM('').window;
+// Create a DOMPurify instance
+const window = new JSDOM("").window;
 const purify = DOMPurify(window);
 
-// Schema for SVG conversion options validation
+// Configure DOMPurify for SVG cleaning
+purify.addHook("afterSanitizeAttributes", function (node) {
+  // Set all elements owning target to target=_blank
+  if ("target" in node) {
+    node.setAttribute("target", "_blank");
+    node.setAttribute("rel", "noopener noreferrer");
+  }
+  // Set non-HTML/MathML links to xlink:show=new
+  if (
+    !node.hasAttribute("target") &&
+    (node.hasAttribute("xlink:href") || node.hasAttribute("href"))
+  ) {
+    node.setAttribute("xlink:show", "new");
+  }
+});
+
+// Zod schema for SVG conversion options
 export const svgOptionsSchema = z.object({
-  fileFormat: z.string().min(1).max(10),
-  svgVersion: z.string().min(1).max(10),
-  drawStyle: z.string().min(1).max(20),
-  shapeStacking: z.string().min(1).max(20),
-  groupBy: z.string().min(1).max(20),
-  lineFit: z.string().min(1).max(20),
-  allowedCurveTypes: z.array(z.string().min(1).max(20)),
-  fillGaps: z.boolean(),
-  clipOverflow: z.boolean(),
-  nonScalingStroke: z.boolean(),
-  strokeWidth: z.number().min(0).max(10)
+  fileFormat: z.string().optional(),
+  svgVersion: z.string().optional(),
+  drawStyle: z.string().optional(),
+  shapeStacking: z.string().optional(),
+  groupBy: z.string().optional(),
+  lineFit: z.string().optional(),
+  allowedCurveTypes: z.string().optional(),
+  fillGaps: z.string().optional(),
+  clipOverflow: z.string().optional(),
+  nonScalingStroke: z.string().optional(),
+  strokeWidth: z.string().optional()
 });
 
-// Schema for color customization validation
+// Zod schema for color input
 export const colorSchema = z.object({
-  color: z.string().regex(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/, "Invalid hex color")
+  svg: z.string(),
+  color: z.string().regex(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/, {
+    message: "Invalid hex color format. Must be #RRGGBB or #RGB"
+  })
 });
 
-// Schema for background transparency validation
+// Zod schema for background transparency input
 export const backgroundSchema = z.object({
+  svg: z.string(),
   isTransparent: z.boolean()
 });
 
@@ -37,8 +57,11 @@ export const backgroundSchema = z.object({
  * Sanitize filenames to prevent directory traversal attacks
  */
 export function sanitizeFilename(filename: string): string {
-  // Remove any path components (directories)
-  return path.basename(filename);
+  // Remove any path components (directory traversal)
+  const sanitized = path.basename(filename);
+  
+  // Additional sanitization if needed
+  return sanitized.replace(/[^\w\s.-]/g, '_');
 }
 
 /**
@@ -46,21 +69,16 @@ export function sanitizeFilename(filename: string): string {
  */
 export function validateSvgOptions(req: Request, res: Response, next: NextFunction) {
   try {
-    // For form data, we need to parse the values appropriately
-    if (req.body) {
-      // Don't strictly validate here - we'll handle the conversion in the route handler
-      // This allows for FormData submissions where everything is a string
-      next();
-    } else {
-      res.status(400).json({ error: "Missing SVG options" });
-    }
+    svgOptionsSchema.parse(req.body);
+    next();
   } catch (error) {
-    console.error("SVG options validation error:", error);
     if (error instanceof z.ZodError) {
-      res.status(400).json({ error: error.errors });
-    } else {
-      res.status(400).json({ error: "Invalid SVG options" });
+      return res.status(400).json({ 
+        error: "Invalid SVG options", 
+        details: error.errors 
+      });
     }
+    next(error);
   }
 }
 
@@ -69,18 +87,16 @@ export function validateSvgOptions(req: Request, res: Response, next: NextFuncti
  */
 export function validateColorInput(req: Request, res: Response, next: NextFunction) {
   try {
-    if (req.body) {
-      colorSchema.parse(req.body);
-      next();
-    } else {
-      res.status(400).json({ error: "Missing color data" });
-    }
+    colorSchema.parse(req.body);
+    next();
   } catch (error) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ error: error.errors });
-    } else {
-      res.status(400).json({ error: "Invalid color format" });
+      return res.status(400).json({ 
+        error: "Invalid color input", 
+        details: error.errors 
+      });
     }
+    next(error);
   }
 }
 
@@ -89,18 +105,21 @@ export function validateColorInput(req: Request, res: Response, next: NextFuncti
  */
 export function validateBackgroundInput(req: Request, res: Response, next: NextFunction) {
   try {
-    if (req.body) {
-      backgroundSchema.parse(req.body);
-      next();
-    } else {
-      res.status(400).json({ error: "Missing background data" });
+    // Convert string to boolean if it comes from form data
+    if (typeof req.body.isTransparent === 'string') {
+      req.body.isTransparent = req.body.isTransparent === 'true';
     }
+    
+    backgroundSchema.parse(req.body);
+    next();
   } catch (error) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ error: error.errors });
-    } else {
-      res.status(400).json({ error: "Invalid background format" });
+      return res.status(400).json({ 
+        error: "Invalid background transparency input", 
+        details: error.errors 
+      });
     }
+    next(error);
   }
 }
 
@@ -108,13 +127,28 @@ export function validateBackgroundInput(req: Request, res: Response, next: NextF
  * Sanitize SVG content to prevent XSS attacks
  */
 export function sanitizeSvgContent(svg: string): string {
-  // Configure DOMPurify to only allow SVG-specific tags and attributes
-  const purifyConfig = {
+  // Configure specific options for SVG sanitization
+  const sanitizeOptions = {
     USE_PROFILES: { svg: true, svgFilters: true },
-    ADD_TAGS: ['svg', 'path', 'g', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'text', 'tspan'],
-    ADD_ATTR: ['viewBox', 'width', 'height', 'fill', 'stroke', 'stroke-width', 'd', 'transform'],
-    WHOLE_DOCUMENT: true
+    ADD_ATTR: ['target', 'xlink:show'],
+    ALLOWED_TAGS: [
+      'svg', 'g', 'path', 'rect', 'circle', 'ellipse', 'line', 'polyline', 
+      'polygon', 'text', 'tspan', 'defs', 'clipPath', 'mask', 'pattern',
+      'linearGradient', 'radialGradient', 'stop', 'filter', 'feGaussianBlur',
+      'feOffset', 'feBlend', 'feColorMatrix', 'title', 'desc'
+    ],
+    ALLOWED_ATTR: [
+      'viewBox', 'width', 'height', 'xmlns', 'xmlns:xlink', 'version',
+      'x', 'y', 'cx', 'cy', 'r', 'rx', 'ry', 'd', 'transform',
+      'fill', 'fill-opacity', 'fill-rule', 'stroke', 'stroke-width',
+      'stroke-linecap', 'stroke-linejoin', 'stroke-opacity', 'stroke-dasharray',
+      'stroke-dashoffset', 'opacity', 'points', 'x1', 'y1', 'x2', 'y2',
+      'offset', 'stop-color', 'stop-opacity', 'gradientUnits', 'gradientTransform',
+      'font-family', 'font-size', 'text-anchor', 'dominant-baseline',
+      'clip-path', 'clip-rule', 'vector-effect', 'preserveAspectRatio',
+      'mask', 'filter', 'id', 'class', 'style'
+    ]
   };
-  
-  return purify.sanitize(svg, purifyConfig);
+
+  return purify.sanitize(svg, sanitizeOptions);
 }

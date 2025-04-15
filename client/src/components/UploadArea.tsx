@@ -162,7 +162,8 @@ export default function UploadArea({
       });
 
       if (!response.ok) {
-        throw new Error(`Error: ${response.status} ${response.statusText}`);
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Error: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
