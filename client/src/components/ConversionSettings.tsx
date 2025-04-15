@@ -80,7 +80,7 @@ export default function ConversionSettings({
             <Button
               key={preset.id}
               variant={activePreset === preset.id ? "default" : "outline"}
-              className={`justify-start text-left h-auto py-3 px-4 ${
+              className={`justify-start text-left h-auto py-3 px-4 overflow-hidden ${
                 activePreset === preset.id ? "border-primary bg-primary text-primary-foreground" : ""
               }`}
               onClick={() => handleApplyPreset(preset)}
@@ -95,9 +95,9 @@ export default function ConversionSettings({
                   {preset.id === "manufacturing" && <Settings2 className="h-4 w-4" />}
                   {preset.id === "print" && <Image className="h-4 w-4" />}
                 </div>
-                <div>
-                  <div className="font-medium text-sm">{preset.name}</div>
-                  <div className="text-xs opacity-70 mt-0.5 line-clamp-2">{preset.description}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-sm truncate">{preset.name}</div>
+                  <div className="text-xs opacity-70 mt-0.5 line-clamp-2 max-w-full break-words">{preset.description}</div>
                 </div>
               </div>
             </Button>
