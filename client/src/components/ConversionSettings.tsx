@@ -25,8 +25,10 @@ import {
 interface ConversionSettingsProps {
   options: SVGOptions;
   setOptions: Dispatch<SetStateAction<SVGOptions>>;
-  // Add properties needed for real-time conversion
+  // Properties for real-time conversion
   currentFile?: File | null;
+  files?: File[];
+  batchMode?: boolean;
   onSettingsChange?: () => void;
 }
 
@@ -34,10 +36,23 @@ export default function ConversionSettings({
   options,
   setOptions,
   currentFile,
+  files,
+  batchMode,
   onSettingsChange,
 }: ConversionSettingsProps) {
   const [activePreset, setActivePreset] = useState<string | null>(null);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
+
+  // Trigger settings change callback after a small delay to avoid too many conversions
+  const triggerSettingsChange = () => {
+    if (onSettingsChange) {
+      // Check if we have files to process
+      if ((batchMode && files && files.length > 0) || (!batchMode && currentFile)) {
+        // Add a small delay to avoid too many conversions while the user is still changing options
+        setTimeout(() => onSettingsChange(), 500);
+      }
+    }
+  };
 
   const updateOption = <K extends keyof SVGOptions>(
     key: K,
@@ -48,6 +63,9 @@ export default function ConversionSettings({
       [key]: value,
     }));
     setActivePreset(null); // Clear active preset when manually changing options
+    
+    // Trigger conversion with new settings if a file is available
+    triggerSettingsChange();
   };
 
   // For updating array values in options
@@ -63,11 +81,17 @@ export default function ConversionSettings({
       };
     });
     setActivePreset(null); // Clear active preset when manually changing options
+    
+    // Trigger conversion with new settings if a file is available
+    triggerSettingsChange();
   };
 
   const handleApplyPreset = (preset: Preset) => {
     setOptions(applyPreset(preset));
     setActivePreset(preset.id);
+    
+    // Trigger conversion with new preset if a file is available
+    triggerSettingsChange();
   };
   
   // Helper to generate setting headers with tooltips
@@ -92,10 +116,10 @@ export default function ConversionSettings({
       <CardContent className="px-6 py-4">
         <h2 className="text-lg font-medium">Conversion Settings</h2>
         <p className="text-sm text-gray-500 mt-1">
-          Configure these settings <span className="font-medium text-primary">before</span> uploading your image
+          Customize how your image is transformed into SVG
         </p>
-        <div className="mt-2 p-2 bg-amber-50 border border-amber-100 rounded text-xs text-amber-800">
-          ⚠️ Selecting settings here will affect how your image is converted to SVG
+        <div className="mt-2 p-2 bg-blue-50 border border-blue-100 rounded text-xs text-blue-800">
+          ✨ Changes will update the preview in real-time when an image is loaded
         </div>
       </CardContent>
 

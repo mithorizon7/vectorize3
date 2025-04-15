@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Shield, HelpCircle, Github } from "lucide-react";
-import UploadArea from "@/components/UploadArea";
+import UploadArea, { convertImageWithOptions } from "@/components/UploadArea";
 import SVGPreview from "@/components/SVGPreview";
 import ConversionSettings from "@/components/ConversionSettings";
 import PrivacyTermsDialog from "@/components/PrivacyTermsDialog";
@@ -39,6 +39,59 @@ export default function Home() {
     message: "No image uploaded",
   });
   const [options, setOptions] = useState<SVGOptions>(initialSVGOptions);
+
+  // Handler for settings changes to trigger real-time conversion
+  const handleSettingsChange = useCallback(async () => {
+    if (batchMode && files.length > 0) {
+      // Handle batch mode: convert only the active file for preview
+      const activeFile = files[activeFileIndex];
+      
+      // Show loading indicator
+      setConversionStatus({
+        status: "loading",
+        message: `Updating preview for ${activeFile.name || `file ${activeFileIndex + 1}`}...`,
+      });
+      
+      // Convert the active file with new settings
+      const newSvgContent = await convertImageWithOptions(
+        activeFile,
+        options,
+        setConversionStatus,
+        true,
+        activeFileIndex,
+        files.length
+      );
+      
+      if (newSvgContent) {
+        // Update only the active file's SVG content
+        setSvgContents(prev => {
+          const newContents = [...prev];
+          newContents[activeFileIndex] = newSvgContent;
+          return newContents;
+        });
+      }
+    } 
+    else if (file) {
+      // Single file mode
+      // Show loading indicator
+      setConversionStatus({
+        status: "loading",
+        message: "Applying new settings...",
+      });
+      
+      // Use the utility function to convert with new settings
+      const newSvgContent = await convertImageWithOptions(
+        file,
+        options,
+        setConversionStatus,
+        false
+      );
+      
+      if (newSvgContent) {
+        setSvgContent(newSvgContent);
+      }
+    }
+  }, [file, files, batchMode, activeFileIndex, options]);
 
   return (
     <div className="bg-gray-50 font-sans text-gray-800 min-h-screen">
@@ -98,6 +151,10 @@ export default function Home() {
               <ConversionSettings 
                 options={options} 
                 setOptions={setOptions}
+                currentFile={file}
+                files={files}
+                batchMode={batchMode}
+                onSettingsChange={handleSettingsChange}
               />
             </div>
           </div>
