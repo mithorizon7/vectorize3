@@ -1,8 +1,11 @@
 import Queue from 'bull';
 import * as process from 'process';
 
+// Flag to check if Redis connection is enabled
+const REDIS_ENABLED = process.env.REDIS_ENABLED === 'true';
+
 // Redis connection configuration
-const redisConfig = {
+const redisConfig = REDIS_ENABLED ? {
   redis: {
     port: parseInt(process.env.REDIS_PORT || '6379'),
     host: process.env.REDIS_HOST || 'localhost',
@@ -24,10 +27,11 @@ const redisConfig = {
       delay: 5000, // Initial delay before retry (5 seconds)
     },
   },
-};
+} : {};
 
-// Create and export the conversion queue
-export const conversionQueue = new Queue('svg-conversion', redisConfig);
+// Create and export the conversion queue (or null if Redis is not enabled)
+export const conversionQueue = REDIS_ENABLED ? new Queue('svg-conversion', redisConfig) : null;
+console.log(`Queue system is ${REDIS_ENABLED ? 'ENABLED' : 'DISABLED'}`);
 
 // Create and export the job types and statuses for type safety
 export enum JobType {
@@ -79,32 +83,39 @@ export interface BackgroundJobPayload {
 
 // Function to clean up stalled jobs
 export async function cleanupStalledJobs() {
-  await conversionQueue.clean(86400000, 'delayed'); // Clean delayed older than 24h
-  await conversionQueue.clean(86400000, 'wait'); // Clean waiting older than 24h
-  await conversionQueue.clean(86400000, 'active'); // Clean active older than 24h
+  if (REDIS_ENABLED && conversionQueue) {
+    await conversionQueue.clean(86400000, 'delayed'); // Clean delayed older than 24h
+    await conversionQueue.clean(86400000, 'wait'); // Clean waiting older than 24h
+    await conversionQueue.clean(86400000, 'active'); // Clean active older than 24h
+    console.log('Stalled jobs cleaned up');
+  } else {
+    console.log('Skipping stalled job cleanup - Redis not enabled');
+  }
 }
 
-// Setup event listeners for the queue
-conversionQueue.on('error', (error) => {
-  console.error('Conversion queue error:', error);
-});
+// Setup event listeners for the queue if Redis is enabled
+if (REDIS_ENABLED && conversionQueue) {
+  conversionQueue.on('error', (error) => {
+    console.error('Conversion queue error:', error);
+  });
 
-conversionQueue.on('failed', (job, error) => {
-  console.error(`Job ${job.id} failed:`, error);
-});
+  conversionQueue.on('failed', (job, error) => {
+    console.error(`Job ${job.id} failed:`, error);
+  });
 
-conversionQueue.on('stalled', (job) => {
-  console.warn(`Job ${job.id} stalled`);
-});
+  conversionQueue.on('stalled', (job) => {
+    console.warn(`Job ${job.id} stalled`);
+  });
 
-// Setup Redis client events
-conversionQueue.client.on('error', (error) => {
-  console.error('Redis client error:', error);
-});
+  // Setup Redis client events
+  conversionQueue.client.on('error', (error) => {
+    console.error('Redis client error:', error);
+  });
 
-conversionQueue.client.on('connect', () => {
-  console.log('Redis client connected');
-});
+  conversionQueue.client.on('connect', () => {
+    console.log('Redis client connected');
+  });
+}
 
 // Export Redis client for potential use elsewhere
-export const redisClient = conversionQueue.client;
+export const redisClient = REDIS_ENABLED && conversionQueue ? conversionQueue.client : null;

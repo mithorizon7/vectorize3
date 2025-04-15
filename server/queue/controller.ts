@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as process from 'process';
 import { v4 as uuidv4 } from 'uuid';
 import { 
   addConversionJob, 
@@ -11,6 +12,9 @@ import {
 import { conversionQueue, JobType } from './config';
 import { sanitizeSvgContent } from '../validation/inputValidation';
 
+// Flag to check if Redis connection is enabled
+const REDIS_ENABLED = process.env.REDIS_ENABLED === 'true';
+
 // Controller for handling queue-related operations
 export const queueController = {
   // Get job status
@@ -20,6 +24,11 @@ export const queueController = {
       
       if (!jobId) {
         return res.status(400).json({ error: 'Job ID is required' });
+      }
+      
+      // Check if Redis is enabled
+      if (!conversionQueue) {
+        return res.status(503).json({ error: 'Queue system is not available' });
       }
       
       const job = await conversionQueue.getJob(jobId);

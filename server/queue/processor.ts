@@ -299,59 +299,197 @@ async function processBackgroundJob(job: Job<BackgroundJobPayload>) {
   }
 }
 
+// Flag to check if Redis connection is enabled (imported from config)
+const REDIS_ENABLED = process.env.REDIS_ENABLED === 'true';
+
 // Initialize the job processors
 export function initializeJobProcessors() {
-  // Process individual image conversion
-  conversionQueue.process(JobType.CONVERT_IMAGE, 2, processConversionJob);
-  
-  // Process batch conversion (limit to 1 at a time as it's resource intensive)
-  conversionQueue.process(JobType.BATCH_CONVERT, 1, processBatchConversionJob);
-  
-  // Process color application (less resource intensive, can handle more)
-  conversionQueue.process(JobType.APPLY_COLOR, 4, processColorJob);
-  
-  // Process background setting (less resource intensive, can handle more)
-  conversionQueue.process(JobType.SET_BACKGROUND, 4, processBackgroundJob);
-  
-  console.log('Job processors initialized');
-  
-  // Run cleanup on startup
-  cleanupStalledJobs().catch(err => {
-    console.error('Error cleaning up stalled jobs:', err);
-  });
+  if (REDIS_ENABLED && conversionQueue) {
+    // Process individual image conversion
+    conversionQueue.process(JobType.CONVERT_IMAGE, 2, processConversionJob);
+    
+    // Process batch conversion (limit to 1 at a time as it's resource intensive)
+    conversionQueue.process(JobType.BATCH_CONVERT, 1, processBatchConversionJob);
+    
+    // Process color application (less resource intensive, can handle more)
+    conversionQueue.process(JobType.APPLY_COLOR, 4, processColorJob);
+    
+    // Process background setting (less resource intensive, can handle more)
+    conversionQueue.process(JobType.SET_BACKGROUND, 4, processBackgroundJob);
+    
+    console.log('Job processors initialized');
+    
+    // Run cleanup on startup
+    cleanupStalledJobs().catch(err => {
+      console.error('Error cleaning up stalled jobs:', err);
+    });
+  } else {
+    console.log('Job processors not initialized - Redis not enabled');
+  }
+}
+
+// Fallback function for processing conversions synchronously (when Redis is not available)
+async function processConversionSynchronously(payload: ConversionJobPayload) {
+  try {
+    console.log("Processing conversion synchronously...");
+    
+    // Verify the file exists
+    if (!fs.existsSync(payload.filePath)) {
+      throw new Error(`File does not exist at path: ${payload.filePath}`);
+    }
+    
+    // Read the file
+    const fileBuffer = fs.readFileSync(payload.filePath);
+    console.log(`File buffer created, size: ${fileBuffer.length} bytes`);
+    
+    const options = payload.options;
+    let result: string;
+    
+    // Auto-detect the best conversion method if requested
+    if (options.traceEngine === 'auto') {
+      // Analyze image colors
+      const colorAnalysis = await detectColorComplexity(fileBuffer);
+      
+      // Choose engine based on color complexity
+      if (colorAnalysis.isColorImage && colorAnalysis.distinctColors > 8) {
+        result = await convertImageToColorSVG(fileBuffer, options);
+      } else {
+        result = await convertImageToSVG(fileBuffer, options);
+      }
+    } 
+    // Use explicitly selected engine
+    else if (options.traceEngine === 'imagetracer') {
+      result = await convertImageToColorSVG(fileBuffer, options);
+    } 
+    // Default to potrace
+    else {
+      result = await convertImageToSVG(fileBuffer, options);
+    }
+    
+    // Sanitize the SVG
+    const sanitizedSvg = sanitizeSvgContent(result);
+    
+    if (!sanitizedSvg || sanitizedSvg.length === 0) {
+      throw new Error('SVG generation failed - empty result');
+    }
+    
+    // Clean up the temp file
+    try {
+      fs.unlinkSync(payload.filePath);
+    } catch (cleanupError) {
+      console.error('Error cleaning up temp file:', cleanupError);
+    }
+    
+    return { svg: sanitizedSvg };
+  } catch (error) {
+    console.error('Error in synchronous conversion:', error);
+    
+    // Clean up temp file even on failure
+    try {
+      if (fs.existsSync(payload.filePath)) {
+        fs.unlinkSync(payload.filePath);
+      }
+    } catch (cleanupError) {
+      console.error('Error cleaning up temp file:', cleanupError);
+    }
+    
+    throw error;
+  }
 }
 
 // Function to add a new conversion job to the queue
 export async function addConversionJob(payload: ConversionJobPayload) {
-  const job = await conversionQueue.add(JobType.CONVERT_IMAGE, payload);
-  return job;
+  if (REDIS_ENABLED && conversionQueue) {
+    // Use queue if Redis is available
+    const job = await conversionQueue.add(JobType.CONVERT_IMAGE, payload);
+    return job;
+  } else {
+    // Fallback to synchronous processing
+    console.log("Queue not available - processing conversion synchronously");
+    const result = await processConversionSynchronously(payload);
+    return {
+      id: crypto.randomUUID(),
+      returnvalue: result
+    };
+  }
 }
 
 // Function to add a batch conversion job to the queue
 export async function addBatchConversionJob(payload: BatchConversionJobPayload) {
-  const job = await conversionQueue.add(JobType.BATCH_CONVERT, payload);
-  return job;
+  if (REDIS_ENABLED && conversionQueue) {
+    const job = await conversionQueue.add(JobType.BATCH_CONVERT, payload);
+    return job;
+  } else {
+    // Fallback to sequential synchronous processing
+    console.log("Queue not available - processing batch conversion synchronously");
+    const results = [];
+    
+    for (const file of payload.files) {
+      try {
+        const result = await processConversionSynchronously({
+          fileId: file.fileId,
+          filePath: file.filePath,
+          originalFilename: file.originalFilename,
+          options: payload.options
+        });
+        results.push({ fileId: file.fileId, svg: result.svg });
+      } catch (error) {
+        console.error(`Error converting file ${file.originalFilename || file.fileId}:`, error);
+      }
+    }
+    
+    return {
+      id: crypto.randomUUID(),
+      returnvalue: { results }
+    };
+  }
 }
 
 // Function to add a color application job to the queue
 export async function addColorJob(payload: ColorJobPayload) {
-  const job = await conversionQueue.add(JobType.APPLY_COLOR, payload);
-  return job;
+  if (REDIS_ENABLED && conversionQueue) {
+    const job = await conversionQueue.add(JobType.APPLY_COLOR, payload);
+    return job;
+  } else {
+    // Fallback to synchronous processing
+    console.log("Queue not available - applying color synchronously");
+    const result = await applySvgColor(payload.svgContent, payload.color);
+    const sanitizedSvg = sanitizeSvgContent(result);
+    return {
+      id: crypto.randomUUID(),
+      returnvalue: { svg: sanitizedSvg }
+    };
+  }
 }
 
 // Function to add a background setting job to the queue
 export async function addBackgroundJob(payload: BackgroundJobPayload) {
-  const job = await conversionQueue.add(JobType.SET_BACKGROUND, payload);
-  return job;
+  if (REDIS_ENABLED && conversionQueue) {
+    const job = await conversionQueue.add(JobType.SET_BACKGROUND, payload);
+    return job;
+  } else {
+    // Fallback to synchronous processing
+    console.log("Queue not available - setting background synchronously");
+    const result = await setTransparentBackground(payload.svgContent, payload.isTransparent);
+    const sanitizedSvg = sanitizeSvgContent(result);
+    return {
+      id: crypto.randomUUID(),
+      returnvalue: { svg: sanitizedSvg }
+    };
+  }
 }
 
 // Function to clean up stalled jobs
 async function cleanupStalledJobs() {
   try {
-    await conversionQueue.clean(86400000, 'delayed'); // Clean delayed older than 24h
-    await conversionQueue.clean(86400000, 'wait'); // Clean waiting older than 24h
-    await conversionQueue.clean(86400000, 'active'); // Clean active older than 24h
-    console.log('Stalled jobs cleaned up');
+    if (REDIS_ENABLED && conversionQueue) {
+      await conversionQueue.clean(86400000, 'delayed'); // Clean delayed older than 24h
+      await conversionQueue.clean(86400000, 'wait'); // Clean waiting older than 24h
+      await conversionQueue.clean(86400000, 'active'); // Clean active older than 24h
+      console.log('Stalled jobs cleaned up');
+    } else {
+      console.log('Skipping stalled job cleanup - Redis not enabled');
+    }
   } catch (error) {
     console.error('Error cleaning up stalled jobs:', error);
     throw error;
