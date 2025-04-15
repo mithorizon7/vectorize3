@@ -1,12 +1,8 @@
-import sharp from "sharp";
-import * as potrace from "potrace";
-import { promisify } from "util";
+// @ts-ignore
+import * as potrace from 'potrace';
+import * as sharp from 'sharp';
+import { JSDOM } from 'jsdom';
 
-// Promisify potrace methods
-const traceFile = promisify(potrace.trace);
-const posterize = promisify(potrace.posterize);
-
-// Options type for image tracing
 interface TracingOptions {
   fileFormat: string;
   svgVersion: string;
@@ -29,44 +25,67 @@ export async function convertImageToSVG(
   options: TracingOptions
 ): Promise<string> {
   try {
-    // Preprocess image using sharp
-    const processedImageBuffer = await preprocessImage(imageBuffer);
-
-    // Trace options based on user settings
-    const potraceParams: potrace.Parameters = {
-      // Convert line fit setting to threshold
-      turdSize: getLineFitThreshold(options.lineFit),
+    console.log("Converting image to SVG...");
+    
+    // Set up potrace parameters based on options
+    const params: any = {
+      background: '#fff',
+      color: '#000',
+      threshold: 128,
+      turdSize: 2,
       alphaMax: 1,
       optCurve: true,
-      // More detailed paths for fine settings
       optTolerance: getOptTolerance(options.lineFit),
-      // Optional: Convert color to grayscale threshold
-      threshold: -1, // Auto threshold
+      blackOnWhite: true,
+      turnPolicy: 'minority',
+      // Set curve type options
+      curveOptions: {
+        optCurve: true,
+        threshold: getLineFitThreshold(options.lineFit),
+        alphaMax: options.fillGaps ? 1.2 : 1,
+      }
     };
 
-    // If using "fillShapes" draw style, we use standard potrace
-    // For other styles we'd need different approaches
-    let svgString = '';
+    // Direct tracing without preprocessing
+    const svgString = await traceBuffer(imageBuffer, params);
     
-    if (options.drawStyle === "fillShapes") {
-      const trace = await traceBuffer(processedImageBuffer, potraceParams);
-      svgString = trace;
-    } else {
-      // For stroke options we need a different approach
-      // This is a simplified version; in a real implementation
-      // you would handle different draw styles differently
-      const trace = await traceBuffer(processedImageBuffer, {
-        ...potraceParams,
-        background: options.clipOverflow ? '#FFFFFF' : 'transparent',
-        color: '#000000',
-      });
-      svgString = trace;
+    // Apply SVG transformations
+    let result = svgString;
+    
+    // Set proper SVG version
+    result = setCorrectSvgVersion(result, options.svgVersion);
+    
+    // Apply non-scaling stroke if selected
+    if (options.nonScalingStroke) {
+      result = result.replace(/<path /g, '<path vector-effect="non-scaling-stroke" ');
     }
-
-    // Apply SVG version
-    svgString = setCorrectSvgVersion(svgString, options.svgVersion);
-
-    return svgString;
+    
+    // Set stroke width if provided
+    if (options.strokeWidth > 0 && options.drawStyle === 'stroke') {
+      result = result.replace(/<path /g, `<path stroke-width="${options.strokeWidth}" fill="none" stroke="black" `);
+    }
+    
+    // Add clip path if selected
+    if (options.clipOverflow) {
+      // Extract viewBox dimensions
+      const viewBoxMatch = result.match(/viewBox="([^"]+)"/);
+      if (viewBoxMatch && viewBoxMatch[1]) {
+        const viewBox = viewBoxMatch[1].split(' ');
+        const width = viewBox[2];
+        const height = viewBox[3];
+        
+        // Add clipPath
+        result = result.replace(
+          /<svg /,
+          `<svg><defs><clipPath id="clip"><rect width="${width}" height="${height}" /></clipPath></defs><g clip-path="url(#clip)" `
+        );
+        
+        // Close the added g tag
+        result = result.replace(/<\/svg>/, '</g></svg>');
+      }
+    }
+    
+    return result;
   } catch (error) {
     console.error("Error converting image to SVG:", error);
     throw error;
@@ -74,29 +93,16 @@ export async function convertImageToSVG(
 }
 
 /**
- * Preprocess the image for better tracing
- */
-async function preprocessImage(imageBuffer: Buffer): Promise<Buffer> {
-  // Resize if too large, convert to png format for consistent processing
-  return await sharp(imageBuffer)
-    .resize(1200, 1200, { fit: 'inside', withoutEnlargement: true })
-    .png()
-    .toBuffer();
-}
-
-/**
  * Convert buffer to SVG using potrace
  */
-async function traceBuffer(buffer: Buffer, params: potrace.Parameters): Promise<string> {
+async function traceBuffer(buffer: Buffer, params: any): Promise<string> {
   return new Promise((resolve, reject) => {
-    const instance = new potrace.Potrace();
-    Object.assign(instance, params);
-    
-    instance.loadImage(buffer, (err) => {
-      if (err) return reject(err);
-      
-      const svg = instance.getSVG(1.0);
-      resolve(svg);
+    potrace.trace(buffer, params, (err: any, svg: string) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(svg);
+      }
     });
   });
 }
@@ -106,14 +112,24 @@ async function traceBuffer(buffer: Buffer, params: potrace.Parameters): Promise<
  */
 export async function applySvgColor(svgContent: string, color: string): Promise<string> {
   try {
-    // Use regex to replace fill colors that aren't "none"
-    // This is a simple approach; a real implementation might use an SVG parser
-    const coloredSvg = svgContent.replace(
-      /fill="([^"]+)"/g,
-      (match, fill) => fill === "none" ? match : `fill="${color}"`
-    );
+    // Create a DOM parser
+    const dom = new JSDOM(svgContent);
+    const document = dom.window.document;
     
-    return coloredSvg;
+    // Find all path elements
+    const paths = document.querySelectorAll('path');
+    paths.forEach(path => {
+      if (path.hasAttribute('fill') && path.getAttribute('fill') !== 'none') {
+        path.setAttribute('fill', color);
+      }
+      
+      if (path.hasAttribute('stroke') && path.getAttribute('stroke') !== 'none') {
+        path.setAttribute('stroke', color);
+      }
+    });
+    
+    // Return the modified SVG
+    return dom.serialize();
   } catch (error) {
     console.error("Error applying color to SVG:", error);
     throw error;
@@ -125,22 +141,31 @@ export async function applySvgColor(svgContent: string, color: string): Promise<
  */
 export async function setTransparentBackground(svgContent: string, isTransparent: boolean): Promise<string> {
   try {
-    // Look for a background rect (usually first rect with width/height 100% or large dimensions)
-    const bgRegex = /<rect[^>]*?(?:width="100%"|x="0"[^>]*?y="0")[^>]*?fill="([^"]+)"[^>]*?>/;
-    
-    if (bgRegex.test(svgContent)) {
-      // Replace background fill
-      return svgContent.replace(
-        bgRegex,
-        (match, fill) => match.replace(`fill="${fill}"`, `fill="${isTransparent ? 'none' : '#FFFFFF'}"`)
-      );
+    if (isTransparent) {
+      // Remove any background rectangle if it exists
+      return svgContent.replace(/<rect[^>]*?(?:id|class)="background"[^>]*?\/>/, '');
     } else {
-      // If no background rect found, add one at the beginning of the SVG content
-      const svgTagRegex = /(<svg[^>]*?>)/;
-      const bgRect = `<rect x="0" y="0" width="100%" height="100%" fill="${isTransparent ? 'none' : '#FFFFFF'}"/>`;
+      // Check if SVG already has a background rect
+      if (svgContent.includes('id="background"') || svgContent.includes('class="background"')) {
+        return svgContent;
+      }
       
-      return svgContent.replace(svgTagRegex, `$1${bgRect}`);
+      // Extract viewBox to get dimensions
+      const viewBoxMatch = svgContent.match(/viewBox="([^"]+)"/);
+      if (viewBoxMatch && viewBoxMatch[1]) {
+        const viewBox = viewBoxMatch[1].split(' ');
+        const width = viewBox[2];
+        const height = viewBox[3];
+        
+        // Add white background
+        const backgroundRect = `<rect id="background" x="0" y="0" width="${width}" height="${height}" fill="#ffffff"/>`;
+        
+        // Insert after the SVG opening tag
+        return svgContent.replace(/<svg([^>]*)>/, `<svg$1>${backgroundRect}`);
+      }
     }
+    
+    return svgContent;
   } catch (error) {
     console.error("Error setting SVG background:", error);
     throw error;
@@ -151,45 +176,55 @@ export async function setTransparentBackground(svgContent: string, isTransparent
  * Set correct SVG version in the SVG content
  */
 function setCorrectSvgVersion(svgContent: string, version: string): string {
-  const versionMap: Record<string, string> = {
-    "1.0": '1.0',
-    "1.1": '1.1',
-    "tiny1.2": '1.2',
+  const versionMap: { [key: string]: string } = {
+    '1.0': '1.0',
+    '1.1': '1.1',
+    '2.0': '2.0'
   };
   
-  const versionString = versionMap[version] || '1.1'; // Default to 1.1
+  const actualVersion = versionMap[version] || '1.1';
   
-  // Replace version in SVG tag
-  return svgContent.replace(
-    /<svg[^>]*?version="[^"]*?"[^>]*?>/,
-    (match) => match.replace(/version="[^"]*?"/, `version="${versionString}"`)
-  );
+  // Replace version attribute if it exists
+  if (svgContent.includes('version="')) {
+    return svgContent.replace(/version="[^"]*"/, `version="${actualVersion}"`);
+  } else {
+    // Add version attribute if it doesn't exist
+    return svgContent.replace(/<svg/, `<svg version="${actualVersion}"`);
+  }
 }
 
 /**
  * Get line fit threshold based on user selection
  */
 function getLineFitThreshold(lineFit: string): number {
-  const thresholds: Record<string, number> = {
-    "coarse": 5,
-    "medium": 3,
-    "fine": 2,
-    "superFine": 1,
-  };
-  
-  return thresholds[lineFit] || 3; // Default to medium
+  switch (lineFit) {
+    case 'loose':
+      return 10.0;
+    case 'default':
+      return 4.0; 
+    case 'tight':
+      return 2.0;
+    case 'optimized':
+      return 1.0;
+    default:
+      return 4.0;
+  }
 }
 
 /**
  * Get optimization tolerance based on line fit selection
  */
 function getOptTolerance(lineFit: string): number {
-  const tolerances: Record<string, number> = {
-    "coarse": 0.5,
-    "medium": 0.2,
-    "fine": 0.1,
-    "superFine": 0.05,
-  };
-  
-  return tolerances[lineFit] || 0.2; // Default to medium
+  switch (lineFit) {
+    case 'loose':
+      return 1.0;
+    case 'default':
+      return 0.5;
+    case 'tight':
+      return 0.3;
+    case 'optimized':
+      return 0.2;
+    default:
+      return 0.5;
+  }
 }

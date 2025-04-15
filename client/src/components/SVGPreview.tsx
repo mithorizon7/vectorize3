@@ -79,7 +79,7 @@ export default function SVGPreview({
       const matches = activeSvg.match(colorRegex) || [];
       
       // Filter unique colors and limit to 20 for performance
-      const uniqueColors = [...new Set(matches)].slice(0, 20);
+      const uniqueColors = Array.from(new Set(matches)).slice(0, 20);
       setDetectedColors(uniqueColors);
       
       // Initialize color map if needed
