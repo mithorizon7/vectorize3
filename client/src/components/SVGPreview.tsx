@@ -69,6 +69,16 @@ export default function SVGPreview({
     } else {
       setActiveSvg(svgContent);
     }
+    
+    // Log detailed information about SVG content
+    if (svgContent) {
+      console.log("SVG content loaded, length:", svgContent.length);
+      console.log("SVG preview:", svgContent.substring(0, 100) + "...");
+    } else if (batchMode && svgContents[activeFileIndex]) {
+      console.log("Batch SVG content loaded, length:", svgContents[activeFileIndex]?.length);
+    } else {
+      console.log("No SVG content available");
+    }
   }, [svgContent, svgContents, activeFileIndex, batchMode]);
 
   // Extract colors from SVG for multi-color mode

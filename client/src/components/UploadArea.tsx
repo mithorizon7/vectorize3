@@ -168,6 +168,8 @@ export default function UploadArea({
 
       const data = await response.json();
       
+      console.log("Received SVG data:", !!data.svg, data.svg ? data.svg.substring(0, 100) + "..." : "No SVG data");
+      
       if (isBatch) {
         setSvgContents(prev => {
           const newContents = [...prev];

@@ -34,10 +34,14 @@ export async function convertImageToSVG(
 ): Promise<string> {
   try {
     console.log("Converting image to SVG...");
+    console.log("Image buffer size:", imageBuffer?.length || 0, "bytes");
+    console.log("Options:", JSON.stringify(options, null, 2));
     
     // Create a temp file for potrace (it works better with files than buffers)
     const tmpFilePath = path.join(tempDir, `${crypto.randomUUID()}.png`);
+    console.log("Temp file path:", tmpFilePath);
     fs.writeFileSync(tmpFilePath, imageBuffer);
+    console.log("Temp file created. Size:", fs.statSync(tmpFilePath).size, "bytes");
     
     try {
       // Set up potrace parameters based on options
@@ -121,6 +125,7 @@ export async function convertImageToSVG(
 async function traceImageFile(filePath: string, params: any): Promise<string> {
   return new Promise((resolve, reject) => {
     try {
+      console.log("Creating Potrace tracer with params:", JSON.stringify(params));
       const tracer = new potrace.Potrace();
       
       // Configure the tracer with our params
@@ -137,17 +142,22 @@ async function traceImageFile(filePath: string, params: any): Promise<string> {
         });
       }
       
+      console.log("Loading image from file:", filePath);
       // Load the image from file
       tracer.loadImage(filePath, (err: any) => {
         if (err) {
+          console.error("Error loading image with Potrace:", err);
           return reject(new Error(`Error loading image: ${err.message || err}`));
         }
         
+        console.log("Image loaded successfully, getting SVG");
         // Get SVG string
         const svg = tracer.getSVG();
+        console.log("SVG generated successfully, length:", svg?.length || 0);
         resolve(svg);
       });
     } catch (err) {
+      console.error("Error in traceImageFile:", err);
       reject(err);
     }
   });
