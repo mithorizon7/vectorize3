@@ -48,19 +48,28 @@ export async function convertImageToSVG(
         background: '#fff',
         color: '#000',
         threshold: 128,
-        turdSize: 2,
-        alphaMax: 1,
+        // Set turdSize (noise removal) based on line fit option
+        turdSize: options.lineFit === 'coarse' ? 4 : 
+                 options.lineFit === 'medium' ? 2 : 
+                 options.lineFit === 'fine' ? 1 : 0.5,
+        // Set alphaMax based on fillGaps option
+        alphaMax: options.fillGaps ? 1.2 : 1,
         optCurve: true,
         optTolerance: getOptTolerance(options.lineFit),
         blackOnWhite: true,
-        turnPolicy: 'minority',
+        // Use appropriate turn policy based on drawing style
+        turnPolicy: options.drawStyle === 'strokeOutlines' ? 'black' : 'minority',
         // Set curve type options
         curveOptions: {
           optCurve: true,
           threshold: getLineFitThreshold(options.lineFit),
           alphaMax: options.fillGaps ? 1.2 : 1,
+          // Handle curve types from options
+          allowedCurveTypes: options.allowedCurveTypes
         }
       };
+      
+      console.log("Processed potrace parameters:", JSON.stringify(params, null, 2));
 
       // Call potrace with the temp file path
       const svgString = await traceImageFile(tmpFilePath, params);
@@ -76,9 +85,16 @@ export async function convertImageToSVG(
         result = result.replace(/<path /g, '<path vector-effect="non-scaling-stroke" ');
       }
       
-      // Set stroke width if provided
-      if (options.strokeWidth > 0 && options.drawStyle === 'stroke') {
+      // Apply drawing style based on user selection
+      if (options.drawStyle === 'strokeOutlines') {
+        // Outline stroke style - use stroke, no fill
         result = result.replace(/<path /g, `<path stroke-width="${options.strokeWidth}" fill="none" stroke="black" `);
+      } else if (options.drawStyle === 'strokeEdges') {
+        // Edge stroke style - thinner stroke, keep fill
+        result = result.replace(/<path /g, `<path stroke-width="${options.strokeWidth * 0.7}" stroke="black" `);
+      } else {
+        // Default fill style - ensure fill is black
+        result = result.replace(/<path /g, `<path fill="black" `);
       }
       
       // Add clip path if selected
@@ -129,14 +145,22 @@ async function traceImageFile(filePath: string, params: any): Promise<string> {
       // Create Potrace instance
       const tracer = new potrace.Potrace();
       
-      // Configure basic parameters
+      // Configure parameters based on user options
       tracer.setParameters({
         threshold: params.threshold || 128,
         blackOnWhite: true,
         optCurve: true,
         turdSize: params.turdSize || 2,
         alphaMax: params.alphaMax || 1.0,
-        optTolerance: params.optTolerance || 0.2
+        optTolerance: params.optTolerance || 0.2,
+        turnPolicy: params.turnPolicy || 'minority'
+      });
+      
+      console.log("Set Potrace parameters:", {
+        turdSize: params.turdSize || 2,
+        alphaMax: params.alphaMax || 1.0,
+        optTolerance: params.optTolerance || 0.2,
+        turnPolicy: params.turnPolicy || 'minority'
       });
       
       console.log("Loading image with Potrace:", filePath);
@@ -256,14 +280,14 @@ function setCorrectSvgVersion(svgContent: string, version: string): string {
  */
 function getLineFitThreshold(lineFit: string): number {
   switch (lineFit) {
-    case 'loose':
+    case 'coarse':
       return 10.0;
-    case 'default':
+    case 'medium':
       return 4.0; 
-    case 'tight':
+    case 'fine':
       return 2.0;
-    case 'optimized':
-      return 1.0;
+    case 'superFine':
+      return 0.5;
     default:
       return 4.0;
   }
@@ -274,15 +298,15 @@ function getLineFitThreshold(lineFit: string): number {
  */
 function getOptTolerance(lineFit: string): number {
   switch (lineFit) {
-    case 'loose':
-      return 1.0;
-    case 'default':
-      return 0.5;
-    case 'tight':
-      return 0.3;
-    case 'optimized':
+    case 'coarse':
+      return 0.8;
+    case 'medium':
+      return 0.4; 
+    case 'fine':
       return 0.2;
+    case 'superFine':
+      return 0.1;
     default:
-      return 0.5;
+      return 0.4;
   }
 }
