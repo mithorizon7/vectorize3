@@ -35,18 +35,19 @@ export default function AdvancedColorCustomizer({
   useEffect(() => {
     // Initialize suggestions from preset palettes when detected colors change
     if (detectedColors.length > 0) {
+      // Find a preset with recommended colors if available
       const suitablePreset = presets.find(p => 
         p.colorSettings?.recommendedPalette && p.colorSettings.recommendedPalette.length > 0
       );
       
-      if (suitablePreset && suitablePreset.colorSettings && suitablePreset.colorSettings.recommendedPalette) {
-        setSuggestedPalettes(prev => {
-          return {
-            ...prev,
-            recommended: [...suitablePreset.colorSettings.recommendedPalette]
-          };
-        });
-      }
+      // Safely update the suggested palettes
+      setSuggestedPalettes(prev => {
+        const recommendedColors = suitablePreset?.colorSettings?.recommendedPalette || [];
+        return {
+          ...prev,
+          recommended: recommendedColors
+        };
+      });
     }
   }, [detectedColors]);
 
