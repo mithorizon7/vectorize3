@@ -1,30 +1,16 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import multer from "multer";
-import path from "path";
 import { convertImageToSVG, applySvgColor, setTransparentBackground } from "./conversion/svg-converter";
-
-// Set up multer for handling file uploads
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB max file size
-  },
-  fileFilter: (_req, file, cb) => {
-    // Allow only image files
-    const filetypes = /jpeg|jpg|png|gif|bmp|webp/;
-    const mimetype = filetypes.test(file.mimetype);
-    const extname = filetypes.test(
-      path.extname(file.originalname).toLowerCase()
-    );
-
-    if (mimetype && extname) {
-      return cb(null, true);
-    }
-    cb(new Error("Error: File upload only supports image files"));
-  },
-});
+import { 
+  upload, 
+  apiLimiter, 
+  conversionLimiter, 
+  securityHeaders, 
+  cleanupTempFiles, 
+  errorHandler 
+} from "./middleware/security";
+import { sanitizeFilename, validateSvgOptions } from "./validation/inputValidation";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Endpoint for image to SVG conversion
