@@ -89,13 +89,31 @@ export const queueController = {
         clipOverflow: req.body.clipOverflow === 'true',
         nonScalingStroke: req.body.nonScalingStroke === 'true',
         
+        // Potrace advanced options (exposed for fine-tuning)
+        turdSize: req.body.turdSize ? parseInt(req.body.turdSize) : undefined,
+        alphaMax: req.body.alphaMax ? parseFloat(req.body.alphaMax) : undefined,
+        optTolerance: req.body.optTolerance ? parseFloat(req.body.optTolerance) : undefined,
+        
         // ImageTracerJS specific options
         numberOfColors: parseInt(req.body.numberOfColors || "16"),
         colorMode: (req.body.colorMode || "color") as 'color' | 'grayscale',
         minColorRatio: parseFloat(req.body.minColorRatio || "0.02"),
         colorQuantization: (req.body.colorQuantization || "default") as 'default' | 'riemersma' | 'floyd-steinberg',
         blurRadius: parseInt(req.body.blurRadius || "0"),
-        preserveColors: req.body.preserveColors === 'true'
+        preserveColors: req.body.preserveColors === 'true',
+        
+        // ImageTracer advanced options (exposed for fine-tuning)
+        colorSampling: req.body.colorSampling !== undefined ? 
+          parseInt(req.body.colorSampling) as 0 | 1 : undefined,
+        ltres: req.body.ltres ? parseFloat(req.body.ltres) : undefined,
+        qtres: req.body.qtres ? parseFloat(req.body.qtres) : undefined,
+        pathomit: req.body.pathomit ? parseInt(req.body.pathomit) : undefined,
+        roundcoords: req.body.roundcoords ? parseInt(req.body.roundcoords) : undefined,
+        
+        // Custom palette option
+        customPalette: req.body.customPalette ? 
+          (typeof req.body.customPalette === 'string' ? 
+            JSON.parse(req.body.customPalette) : req.body.customPalette) : undefined
       };
       
       // Add the job to the queue
@@ -164,13 +182,31 @@ export const queueController = {
         clipOverflow: req.body.clipOverflow === 'true',
         nonScalingStroke: req.body.nonScalingStroke === 'true',
         
+        // Potrace advanced options (exposed for fine-tuning)
+        turdSize: req.body.turdSize ? parseInt(req.body.turdSize) : undefined,
+        alphaMax: req.body.alphaMax ? parseFloat(req.body.alphaMax) : undefined,
+        optTolerance: req.body.optTolerance ? parseFloat(req.body.optTolerance) : undefined,
+        
         // ImageTracerJS specific options
         numberOfColors: parseInt(req.body.numberOfColors || "16"),
         colorMode: (req.body.colorMode || "color") as 'color' | 'grayscale',
         minColorRatio: parseFloat(req.body.minColorRatio || "0.02"),
         colorQuantization: (req.body.colorQuantization || "default") as 'default' | 'riemersma' | 'floyd-steinberg',
         blurRadius: parseInt(req.body.blurRadius || "0"),
-        preserveColors: req.body.preserveColors === 'true'
+        preserveColors: req.body.preserveColors === 'true',
+        
+        // ImageTracer advanced options (exposed for fine-tuning)
+        colorSampling: req.body.colorSampling !== undefined ? 
+          parseInt(req.body.colorSampling) as 0 | 1 : undefined,
+        ltres: req.body.ltres ? parseFloat(req.body.ltres) : undefined,
+        qtres: req.body.qtres ? parseFloat(req.body.qtres) : undefined,
+        pathomit: req.body.pathomit ? parseInt(req.body.pathomit) : undefined,
+        roundcoords: req.body.roundcoords ? parseInt(req.body.roundcoords) : undefined,
+        
+        // Custom palette option
+        customPalette: req.body.customPalette ? 
+          (typeof req.body.customPalette === 'string' ? 
+            JSON.parse(req.body.customPalette) : req.body.customPalette) : undefined
       };
       
       // Add the batch job to the queue

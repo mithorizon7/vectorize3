@@ -16,6 +16,11 @@ interface TracingOptions {
   clipOverflow: boolean;
   nonScalingStroke: boolean;
   strokeWidth: number;
+  
+  // Advanced Potrace options (exposed for fine-tuning)
+  turdSize?: number;      // Suppress speckles of this size or smaller
+  alphaMax?: number;      // Corner threshold parameter
+  optTolerance?: number;  // Curve optimization tolerance
 }
 
 // Ensure temp directory exists
@@ -48,14 +53,18 @@ export async function convertImageToSVG(
         background: '#fff',
         color: '#000',
         threshold: 128,
-        // Set turdSize (noise removal) based on line fit option
-        turdSize: options.lineFit === 'coarse' ? 4 : 
+        // Use user-provided turdSize if available, otherwise derive from line fit
+        turdSize: options.turdSize !== undefined ? options.turdSize : 
+                 options.lineFit === 'coarse' ? 4 : 
                  options.lineFit === 'medium' ? 2 : 
                  options.lineFit === 'fine' ? 1 : 0.5,
-        // Set alphaMax based on fillGaps option
-        alphaMax: options.fillGaps ? 1.2 : 1,
+        // Use user-provided alphaMax if available, otherwise derive from fillGaps
+        alphaMax: options.alphaMax !== undefined ? options.alphaMax : 
+                 options.fillGaps ? 1.2 : 1,
         optCurve: true,
-        optTolerance: getOptTolerance(options.lineFit),
+        // Use user-provided optTolerance if available, otherwise derive from lineFit
+        optTolerance: options.optTolerance !== undefined ? options.optTolerance : 
+                     getOptTolerance(options.lineFit),
         blackOnWhite: true,
         // Use appropriate turn policy based on drawing style
         turnPolicy: options.drawStyle === 'strokeOutlines' ? 'black' : 'minority',
@@ -63,7 +72,8 @@ export async function convertImageToSVG(
         curveOptions: {
           optCurve: true,
           threshold: getLineFitThreshold(options.lineFit),
-          alphaMax: options.fillGaps ? 1.2 : 1,
+          alphaMax: options.alphaMax !== undefined ? options.alphaMax : 
+                   options.fillGaps ? 1.2 : 1,
           // Handle curve types from options
           allowedCurveTypes: options.allowedCurveTypes
         }
