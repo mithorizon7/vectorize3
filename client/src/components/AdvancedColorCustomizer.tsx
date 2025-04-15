@@ -27,7 +27,8 @@ export default function AdvancedColorCustomizer({
   const [suggestedPalettes, setSuggestedPalettes] = useState<Record<string, string[]>>({
     grayscale: ["#000000", "#333333", "#666666", "#999999", "#CCCCCC", "#FFFFFF"],
     primary: ["#1E88E5", "#1565C0", "#0D47A1", "#82B1FF", "#E3F2FD"],
-    accent: ["#F44336", "#4CAF50", "#FFC107", "#9C27B0", "#FF9800"]
+    accent: ["#F44336", "#4CAF50", "#FFC107", "#9C27B0", "#FF9800"],
+    recommended: [] // Initialize with an empty array
   });
 
   // Update suggestions based on detected colors
@@ -39,10 +40,14 @@ export default function AdvancedColorCustomizer({
       );
       
       if (suitablePreset?.colorSettings?.recommendedPalette) {
-        setSuggestedPalettes(prev => ({
-          ...prev,
-          recommended: suitablePreset.colorSettings.recommendedPalette
-        }));
+        setSuggestedPalettes(prev => {
+          return {
+            ...prev,
+            recommended: suitablePreset.colorSettings.recommendedPalette
+              ? [...suitablePreset.colorSettings.recommendedPalette]
+              : []
+          };
+        });
       }
     }
   }, [detectedColors]);

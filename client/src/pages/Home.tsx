@@ -2,9 +2,12 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Shield, HelpCircle, Github } from "lucide-react";
 import UploadArea from "@/components/UploadArea";
 import SVGPreview from "@/components/SVGPreview";
 import ConversionSettings from "@/components/ConversionSettings";
+import PrivacyTermsDialog from "@/components/PrivacyTermsDialog";
 import { SVGOptions, initialSVGOptions } from "@/lib/svg-converter";
 
 export default function Home() {
@@ -49,9 +52,23 @@ export default function Home() {
                 <path d="M12 13.75a1.75 1.75 0 100-3.5 1.75 1.75 0 000 3.5z" />
               </svg>
             </div>
-            <h1 className="text-xl font-semibold">SVG Converter</h1>
+            <h1 className="text-xl font-semibold bg-gradient-to-r from-primary to-primary-foreground bg-clip-text text-transparent">
+              SVG Converter
+            </h1>
+            <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-muted text-muted-foreground">
+              Secure
+            </span>
           </div>
-          <div className="text-sm text-gray-600 hover:text-primary cursor-pointer">Help</div>
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="sm" className="text-muted-foreground">
+              <HelpCircle className="h-4 w-4 mr-1" />
+              Help
+            </Button>
+            <Button variant="ghost" size="sm" className="text-muted-foreground">
+              <Github className="h-4 w-4 mr-1" />
+              GitHub
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -60,37 +77,41 @@ export default function Home() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Left Panel */}
           <div className="lg:col-span-7 space-y-6">
-            <UploadArea 
-              setFile={setFile}
-              setFiles={setFiles}
-              setBatchMode={setBatchMode}
-              batchMode={batchMode}
-              setConversionStatus={setConversionStatus}
-              setSvgContent={setSvgContent}
-              setSvgContents={setSvgContents}
-              setActiveFileIndex={setActiveFileIndex}
-              options={options}
-            />
+            <div id="upload-area">
+              <UploadArea 
+                setFile={setFile}
+                setFiles={setFiles}
+                setBatchMode={setBatchMode}
+                batchMode={batchMode}
+                setConversionStatus={setConversionStatus}
+                setSvgContent={setSvgContent}
+                setSvgContents={setSvgContents}
+                setActiveFileIndex={setActiveFileIndex}
+                options={options}
+              />
+            </div>
 
-            <SVGPreview 
-              svgContent={svgContent}
-              svgContents={svgContents}
-              batchMode={batchMode}
-              activeFileIndex={activeFileIndex}
-              setActiveFileIndex={setActiveFileIndex}
-              files={files}
-              conversionStatus={conversionStatus}
-              isTransparent={isTransparent}
-              setIsTransparent={setIsTransparent}
-              color={color}
-              setColor={setColor}
-              multiColorMode={multiColorMode}
-              setMultiColorMode={setMultiColorMode}
-              colorMap={colorMap}
-              setColorMap={setColorMap}
-              showSplitView={showSplitView}
-              setShowSplitView={setShowSplitView}
-            />
+            <div id="svg-preview">
+              <SVGPreview 
+                svgContent={svgContent}
+                svgContents={svgContents}
+                batchMode={batchMode}
+                activeFileIndex={activeFileIndex}
+                setActiveFileIndex={setActiveFileIndex}
+                files={files}
+                conversionStatus={conversionStatus}
+                isTransparent={isTransparent}
+                setIsTransparent={setIsTransparent}
+                color={color}
+                setColor={setColor}
+                multiColorMode={multiColorMode}
+                setMultiColorMode={setMultiColorMode}
+                colorMap={colorMap}
+                setColorMap={setColorMap}
+                showSplitView={showSplitView}
+                setShowSplitView={setShowSplitView}
+              />
+            </div>
           </div>
 
           {/* Right Panel */}
@@ -107,23 +128,45 @@ export default function Home() {
       <footer className="bg-white border-t border-gray-200 mt-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="md:flex md:items-center md:justify-between">
-            <div className="text-sm text-gray-500">
-              &copy; {new Date().getFullYear()} SVG Converter. All rights reserved.
+            <div className="flex items-center space-x-2">
+              <div className="text-sm text-gray-500">
+                &copy; {new Date().getFullYear()} SVG Converter. All rights reserved.
+              </div>
+              <div className="flex items-center text-xs bg-green-50 text-green-700 px-2 py-1 rounded-full">
+                <Shield className="h-3 w-3 mr-1" />
+                Secure &amp; Private
+              </div>
             </div>
             <div className="mt-4 md:mt-0">
-              <div className="flex space-x-6">
-                <a href="#" className="text-gray-400 hover:text-gray-500">
-                  <span className="sr-only">Privacy Policy</span>
-                  Privacy Policy
-                </a>
-                <a href="#" className="text-gray-400 hover:text-gray-500">
-                  <span className="sr-only">Terms of Service</span>
-                  Terms of Service
-                </a>
-                <a href="#" className="text-gray-400 hover:text-gray-500">
-                  <span className="sr-only">Contact</span>
+              <div className="flex space-x-6 items-center">
+                {/* Use the PrivacyTermsDialog component */}
+                <PrivacyTermsDialog />
+                
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-muted-foreground"
+                  onClick={() => window.open('mailto:support@svgconverter.app', '_blank')}
+                >
                   Contact
-                </a>
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="ml-2"
+                  onClick={() => {
+                    if (svgContent || (batchMode && svgContents.length > 0)) {
+                      // Scroll to SVGPreview section
+                      document.getElementById('svg-preview')?.scrollIntoView({ behavior: 'smooth' });
+                    } else {
+                      // Scroll to upload section
+                      document.getElementById('upload-area')?.scrollIntoView({ behavior: 'smooth' });
+                    }
+                  }}
+                >
+                  Get Started
+                </Button>
               </div>
             </div>
           </div>
