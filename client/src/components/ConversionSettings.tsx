@@ -87,8 +87,11 @@ export default function ConversionSettings({
       <CardContent className="px-6 py-4">
         <h2 className="text-lg font-medium">Conversion Settings</h2>
         <p className="text-sm text-gray-500 mt-1">
-          Choose a preset or customize settings for optimal results
+          Configure these settings <span className="font-medium text-primary">before</span> uploading your image
         </p>
+        <div className="mt-2 p-2 bg-amber-50 border border-amber-100 rounded text-xs text-amber-800">
+          ⚠️ Selecting settings here will affect how your image is converted to SVG
+        </div>
       </CardContent>
 
       {/* Presets Section */}

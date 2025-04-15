@@ -74,10 +74,12 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Left Panel */}
-          <div className="lg:col-span-7 space-y-6">
-            <div id="upload-area">
+        {/* Step 1: Upload & Settings - Side by Side */}
+        <div className="mb-8">
+          <h2 className="text-xl font-medium text-gray-800 mb-4">Step 1: Upload Image & Configure Settings</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Upload Area */}
+            <div className="lg:col-span-5" id="upload-area">
               <UploadArea 
                 setFile={setFile}
                 setFiles={setFiles}
@@ -91,34 +93,38 @@ export default function Home() {
               />
             </div>
 
-            <div id="svg-preview">
-              <SVGPreview 
-                svgContent={svgContent}
-                svgContents={svgContents}
-                batchMode={batchMode}
-                activeFileIndex={activeFileIndex}
-                setActiveFileIndex={setActiveFileIndex}
-                files={files}
-                conversionStatus={conversionStatus}
-                isTransparent={isTransparent}
-                setIsTransparent={setIsTransparent}
-                color={color}
-                setColor={setColor}
-                multiColorMode={multiColorMode}
-                setMultiColorMode={setMultiColorMode}
-                colorMap={colorMap}
-                setColorMap={setColorMap}
-                showSplitView={showSplitView}
-                setShowSplitView={setShowSplitView}
+            {/* Settings */}
+            <div className="lg:col-span-7">
+              <ConversionSettings 
+                options={options} 
+                setOptions={setOptions}
               />
             </div>
           </div>
-
-          {/* Right Panel */}
-          <div className="lg:col-span-5">
-            <ConversionSettings 
-              options={options} 
-              setOptions={setOptions}
+        </div>
+        
+        {/* Step 2: SVG Preview & Customization */}
+        <div>
+          <h2 className="text-xl font-medium text-gray-800 mb-4">Step 2: Preview & Customize SVG</h2>
+          <div id="svg-preview">
+            <SVGPreview 
+              svgContent={svgContent}
+              svgContents={svgContents}
+              batchMode={batchMode}
+              activeFileIndex={activeFileIndex}
+              setActiveFileIndex={setActiveFileIndex}
+              files={files}
+              conversionStatus={conversionStatus}
+              isTransparent={isTransparent}
+              setIsTransparent={setIsTransparent}
+              color={color}
+              setColor={setColor}
+              multiColorMode={multiColorMode}
+              setMultiColorMode={setMultiColorMode}
+              colorMap={colorMap}
+              setColorMap={setColorMap}
+              showSplitView={showSplitView}
+              setShowSplitView={setShowSplitView}
             />
           </div>
         </div>
