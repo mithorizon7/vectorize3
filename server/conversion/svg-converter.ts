@@ -2,6 +2,9 @@
 import * as potrace from 'potrace';
 import * as sharp from 'sharp';
 import { JSDOM } from 'jsdom';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as crypto from 'crypto';
 
 interface TracingOptions {
   fileFormat: string;
@@ -17,6 +20,12 @@ interface TracingOptions {
   strokeWidth: number;
 }
 
+// Ensure temp directory exists
+const tempDir = path.join(process.cwd(), 'temp');
+if (!fs.existsSync(tempDir)) {
+  fs.mkdirSync(tempDir, { recursive: true });
+}
+
 /**
  * Convert image buffer to SVG string
  */
@@ -27,65 +36,83 @@ export async function convertImageToSVG(
   try {
     console.log("Converting image to SVG...");
     
-    // Set up potrace parameters based on options
-    const params: any = {
-      background: '#fff',
-      color: '#000',
-      threshold: 128,
-      turdSize: 2,
-      alphaMax: 1,
-      optCurve: true,
-      optTolerance: getOptTolerance(options.lineFit),
-      blackOnWhite: true,
-      turnPolicy: 'minority',
-      // Set curve type options
-      curveOptions: {
+    // Process the image with sharp first to ensure it's in a format potrace can handle
+    const processedImageBuffer = await preprocessImage(imageBuffer);
+    
+    // Create a temp file for potrace (it works better with files than buffers)
+    const tmpFilePath = path.join(tempDir, `${crypto.randomUUID()}.png`);
+    fs.writeFileSync(tmpFilePath, processedImageBuffer);
+    
+    try {
+      // Set up potrace parameters based on options
+      const params: any = {
+        background: '#fff',
+        color: '#000',
+        threshold: 128,
+        turdSize: 2,
+        alphaMax: 1,
         optCurve: true,
-        threshold: getLineFitThreshold(options.lineFit),
-        alphaMax: options.fillGaps ? 1.2 : 1,
-      }
-    };
+        optTolerance: getOptTolerance(options.lineFit),
+        blackOnWhite: true,
+        turnPolicy: 'minority',
+        // Set curve type options
+        curveOptions: {
+          optCurve: true,
+          threshold: getLineFitThreshold(options.lineFit),
+          alphaMax: options.fillGaps ? 1.2 : 1,
+        }
+      };
 
-    // Direct tracing without preprocessing
-    const svgString = await traceBuffer(imageBuffer, params);
-    
-    // Apply SVG transformations
-    let result = svgString;
-    
-    // Set proper SVG version
-    result = setCorrectSvgVersion(result, options.svgVersion);
-    
-    // Apply non-scaling stroke if selected
-    if (options.nonScalingStroke) {
-      result = result.replace(/<path /g, '<path vector-effect="non-scaling-stroke" ');
-    }
-    
-    // Set stroke width if provided
-    if (options.strokeWidth > 0 && options.drawStyle === 'stroke') {
-      result = result.replace(/<path /g, `<path stroke-width="${options.strokeWidth}" fill="none" stroke="black" `);
-    }
-    
-    // Add clip path if selected
-    if (options.clipOverflow) {
-      // Extract viewBox dimensions
-      const viewBoxMatch = result.match(/viewBox="([^"]+)"/);
-      if (viewBoxMatch && viewBoxMatch[1]) {
-        const viewBox = viewBoxMatch[1].split(' ');
-        const width = viewBox[2];
-        const height = viewBox[3];
-        
-        // Add clipPath
-        result = result.replace(
-          /<svg /,
-          `<svg><defs><clipPath id="clip"><rect width="${width}" height="${height}" /></clipPath></defs><g clip-path="url(#clip)" `
-        );
-        
-        // Close the added g tag
-        result = result.replace(/<\/svg>/, '</g></svg>');
+      // Call potrace with the temp file path
+      const svgString = await traceImageFile(tmpFilePath, params);
+      
+      // Apply SVG transformations
+      let result = svgString;
+      
+      // Set proper SVG version
+      result = setCorrectSvgVersion(result, options.svgVersion);
+      
+      // Apply non-scaling stroke if selected
+      if (options.nonScalingStroke) {
+        result = result.replace(/<path /g, '<path vector-effect="non-scaling-stroke" ');
+      }
+      
+      // Set stroke width if provided
+      if (options.strokeWidth > 0 && options.drawStyle === 'stroke') {
+        result = result.replace(/<path /g, `<path stroke-width="${options.strokeWidth}" fill="none" stroke="black" `);
+      }
+      
+      // Add clip path if selected
+      if (options.clipOverflow) {
+        // Extract viewBox dimensions
+        const viewBoxMatch = result.match(/viewBox="([^"]+)"/);
+        if (viewBoxMatch && viewBoxMatch[1]) {
+          const viewBox = viewBoxMatch[1].split(' ');
+          const width = viewBox[2];
+          const height = viewBox[3];
+          
+          // Add clipPath
+          result = result.replace(
+            /<svg /,
+            `<svg><defs><clipPath id="clip"><rect width="${width}" height="${height}" /></clipPath></defs><g clip-path="url(#clip)" `
+          );
+          
+          // Close the added g tag
+          result = result.replace(/<\/svg>/, '</g></svg>');
+        }
+      }
+      
+      return result;
+    } finally {
+      // Clean up the temp file
+      try {
+        if (fs.existsSync(tmpFilePath)) {
+          fs.unlinkSync(tmpFilePath);
+        }
+      } catch (error) {
+        console.error('Error cleaning up temp file:', error);
       }
     }
-    
-    return result;
   } catch (error) {
     console.error("Error converting image to SVG:", error);
     throw error;
@@ -93,17 +120,60 @@ export async function convertImageToSVG(
 }
 
 /**
- * Convert buffer to SVG using potrace
+ * Preprocess the image for better tracing
  */
-async function traceBuffer(buffer: Buffer, params: any): Promise<string> {
+async function preprocessImage(imageBuffer: Buffer): Promise<Buffer> {
+  try {
+    // Use sharp for image preprocessing
+    return await sharp(imageBuffer)
+      // Convert to grayscale for better potrace results
+      .grayscale()
+      // Ensure good contrast for tracing
+      .normalize()
+      // Output as PNG (potrace works well with PNG)
+      .png()
+      .toBuffer();
+  } catch (error) {
+    console.error('Error preprocessing image:', error);
+    throw error;
+  }
+}
+
+/**
+ * Trace an image file using potrace
+ */
+async function traceImageFile(filePath: string, params: any): Promise<string> {
   return new Promise((resolve, reject) => {
-    potrace.trace(buffer, params, (err: any, svg: string) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(svg);
+    try {
+      const tracer = new potrace.Potrace();
+      
+      // Configure the tracer with our params
+      Object.keys(params).forEach(key => {
+        if (key !== 'curveOptions') {
+          (tracer as any)[key] = params[key];
+        }
+      });
+      
+      // Handle curve options separately if they exist
+      if (params.curveOptions) {
+        Object.keys(params.curveOptions).forEach(key => {
+          (tracer as any)[key] = params.curveOptions[key];
+        });
       }
-    });
+      
+      // Load the image from file
+      tracer.loadImage(filePath, (err: any) => {
+        if (err) {
+          return reject(new Error(`Error loading image: ${err.message || err}`));
+        }
+        
+        // Get SVG string
+        const svg = tracer.getSVG();
+        resolve(svg);
+      });
+    } catch (err) {
+      reject(err);
+    }
   });
 }
 
