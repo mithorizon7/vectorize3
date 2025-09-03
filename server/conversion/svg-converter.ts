@@ -3,6 +3,7 @@ import { JSDOM } from 'jsdom';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
+import sharp from 'sharp';
 
 interface TracingOptions {
   fileFormat: string;
@@ -30,6 +31,75 @@ if (!fs.existsSync(tempDir)) {
 }
 
 /**
+ * Process and normalize image buffer to PNG format for consistent processing
+ * Handles all major image formats and preserves transparency and color profiles
+ */
+async function processImageBuffer(imageBuffer: Buffer): Promise<{
+  processedBuffer: Buffer;
+  metadata: any;
+  format: string;
+}> {
+  try {
+    console.log("Processing image buffer with Sharp...");
+    
+    // Get image metadata to understand the input format
+    const image = sharp(imageBuffer);
+    const metadata = await image.metadata();
+    
+    console.log("Input image metadata:", {
+      format: metadata.format,
+      width: metadata.width,
+      height: metadata.height,
+      channels: metadata.channels,
+      hasAlpha: metadata.hasAlpha,
+      space: metadata.space,
+      density: metadata.density
+    });
+    
+    // Convert to PNG to ensure consistent format for tracers
+    // PNG supports transparency and maintains color fidelity
+    let processedImage = image.png({
+      compressionLevel: 0, // No compression for better quality
+      adaptiveFiltering: false, // Faster processing
+      force: true // Force PNG output even if input is PNG
+    });
+    
+    // Preserve color space and profiles when possible
+    if (metadata.space && metadata.space !== 'srgb') {
+      console.log(`Converting from ${metadata.space} to sRGB color space`);
+      processedImage = processedImage.toColorspace('srgb');
+    }
+    
+    // Ensure we have consistent pixel format
+    // Convert to RGBA if the image has transparency, RGB otherwise
+    if (metadata.hasAlpha) {
+      console.log("Preserving alpha channel for transparency");
+      processedImage = processedImage.ensureAlpha();
+    }
+    
+    // Get the processed buffer
+    const processedBuffer = await processedImage.toBuffer();
+    
+    console.log("Image processing complete:", {
+      originalSize: imageBuffer.length,
+      processedSize: processedBuffer.length,
+      originalFormat: metadata.format,
+      outputFormat: 'png'
+    });
+    
+    return {
+      processedBuffer,
+      metadata,
+      format: metadata.format || 'unknown'
+    };
+    
+  } catch (error) {
+    console.error("Error processing image buffer:", error);
+    throw new Error(`Failed to process image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+/**
  * Convert image buffer to SVG string
  */
 export async function convertImageToSVG(
@@ -41,10 +111,15 @@ export async function convertImageToSVG(
     console.log("Image buffer size:", imageBuffer?.length || 0, "bytes");
     console.log("Options:", JSON.stringify(options, null, 2));
     
-    // Create a temp file for potrace (it works better with files than buffers)
+    // Process the image buffer to normalize format and preserve quality
+    const { processedBuffer, metadata, format } = await processImageBuffer(imageBuffer);
+    
+    console.log(`Processed ${format.toUpperCase()} image for Potrace conversion`);
+    
+    // Create a temp file for potrace using the processed PNG buffer
     const tmpFilePath = path.join(tempDir, `${crypto.randomUUID()}.png`);
     console.log("Temp file path:", tmpFilePath);
-    fs.writeFileSync(tmpFilePath, imageBuffer);
+    fs.writeFileSync(tmpFilePath, processedBuffer);
     console.log("Temp file created. Size:", fs.statSync(tmpFilePath).size, "bytes");
     
     try {

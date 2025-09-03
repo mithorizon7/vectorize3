@@ -18,7 +18,8 @@ import {
   validateSvgOptions,
   validateColorInput,
   validateBackgroundInput,
-  sanitizeSvgContent
+  sanitizeSvgContent,
+  validateImageFormat
 } from "./validation/inputValidation";
 import { queueController } from "./queue/controller";
 import { initializeJobProcessors, setSocketServer } from "./queue/processor";
@@ -152,9 +153,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         console.log(`Reading file from ${req.file.path}`);
-        // Read the file for conversion
+        // Read and validate the file format
         const fileBuffer = fs.readFileSync(req.file.path);
         console.log(`File buffer created, size: ${fileBuffer.length} bytes`);
+        
+        // Validate image format using Sharp
+        console.log("Validating image format...");
+        const formatValidation = await validateImageFormat(fileBuffer, req.file.mimetype);
+        
+        if (!formatValidation.isValid) {
+          console.error("Image format validation failed:", formatValidation.error);
+          return res.status(400).json({ 
+            error: "Invalid image format", 
+            details: formatValidation.error,
+            supportedFormats: formatValidation.supportedFormats
+          });
+        }
+        
+        console.log(`Validated ${formatValidation.detectedFormat.toUpperCase()} image format successfully`);
+        
+        // Handle SVG files differently (they're already vector format)
+        if (formatValidation.detectedFormat === 'svg') {
+          console.log("SVG file detected - returning original content (already vector format)");
+          const svgContent = fileBuffer.toString('utf8');
+          const sanitizedSvg = sanitizeSvgContent(svgContent);
+          return res.status(200).json({ svg: sanitizedSvg });
+        }
         
         // Choose conversion method based on traceEngine option
         console.log(`Starting SVG conversion with ${options.traceEngine} engine...`);

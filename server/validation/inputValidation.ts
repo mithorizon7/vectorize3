@@ -3,6 +3,7 @@ import { z } from "zod";
 import DOMPurify from "dompurify";
 import { JSDOM } from "jsdom";
 import path from "path";
+import sharp from "sharp";
 
 // Create a DOMPurify instance
 const window = new JSDOM("").window;
@@ -79,6 +80,117 @@ export const backgroundSchema = z.object({
   svg: z.string(),
   isTransparent: z.boolean()
 });
+
+/**
+ * Validate and detect image format from buffer
+ */
+export async function validateImageFormat(buffer: Buffer, mimetype: string): Promise<{
+  isValid: boolean;
+  detectedFormat: string;
+  supportedFormats: string[];
+  error?: string;
+}> {
+  const supportedFormats = ['jpeg', 'jpg', 'png', 'gif', 'bmp', 'tiff', 'webp', 'svg'];
+  
+  try {
+    // Handle SVG separately since it's already vector format
+    if (mimetype === 'image/svg+xml') {
+      const svgContent = buffer.toString('utf8');
+      if (svgContent.includes('<svg') && svgContent.includes('</svg>')) {
+        return {
+          isValid: true,
+          detectedFormat: 'svg',
+          supportedFormats
+        };
+      } else {
+        return {
+          isValid: false,
+          detectedFormat: 'svg',
+          supportedFormats,
+          error: 'Invalid SVG format - missing required SVG tags'
+        };
+      }
+    }
+    
+    // Use Sharp to detect and validate image format for raster images
+    const image = sharp(buffer);
+    const metadata = await image.metadata();
+    
+    if (!metadata.format) {
+      return {
+        isValid: false,
+        detectedFormat: 'unknown',
+        supportedFormats,
+        error: 'Unable to detect image format'
+      };
+    }
+    
+    // Check if the detected format is supported
+    const detectedFormat = metadata.format.toLowerCase();
+    const isSupported = supportedFormats.includes(detectedFormat);
+    
+    if (!isSupported) {
+      return {
+        isValid: false,
+        detectedFormat,
+        supportedFormats,
+        error: `Unsupported image format: ${detectedFormat}. Supported formats: ${supportedFormats.join(', ')}`
+      };
+    }
+    
+    // Additional validation for specific formats
+    if (detectedFormat === 'jpeg' || detectedFormat === 'jpg') {
+      if (!metadata.width || !metadata.height) {
+        return {
+          isValid: false,
+          detectedFormat,
+          supportedFormats,
+          error: 'Invalid JPEG image - missing dimensions'
+        };
+      }
+    }
+    
+    if (detectedFormat === 'png') {
+      if (!metadata.width || !metadata.height) {
+        return {
+          isValid: false,
+          detectedFormat,
+          supportedFormats,
+          error: 'Invalid PNG image - missing dimensions'
+        };
+      }
+    }
+    
+    if (detectedFormat === 'gif') {
+      // GIF might have animation, but we'll take the first frame
+      console.log('GIF detected - will use first frame for conversion');
+    }
+    
+    if (detectedFormat === 'webp') {
+      // WebP supports both lossy and lossless compression
+      console.log('WebP detected - processing as raster image');
+    }
+    
+    if (detectedFormat === 'tiff') {
+      // TIFF might have multiple pages, use first page
+      console.log('TIFF detected - will use first page for conversion');
+    }
+    
+    return {
+      isValid: true,
+      detectedFormat,
+      supportedFormats
+    };
+    
+  } catch (error) {
+    return {
+      isValid: false,
+      detectedFormat: 'unknown',
+      supportedFormats,
+      error: `Image validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+    };
+  }
+}
 
 /**
  * Sanitize filenames to prevent directory traversal attacks
