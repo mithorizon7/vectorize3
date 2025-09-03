@@ -23,7 +23,9 @@ import UploadArea, { convertImageWithOptions } from "@/components/UploadArea";
 import SVGPreview from "@/components/SVGPreview";
 import ConversionSettings from "@/components/ConversionSettings";
 import { PivotPointEditor } from "@/components/PivotPointEditor";
+import { CodeExportPanel } from "@/components/CodeExportPanel";
 import { SVGOptions, initialSVGOptions } from "@/lib/svg-converter";
+import { AnimationElement } from "@/lib/code-generators";
 
 export default function AnimationWorkspace() {
   // Core file and conversion state
@@ -86,6 +88,9 @@ export default function AnimationWorkspace() {
     relativeY: number;
   }>>([]);
 
+  // Mock animation elements for testing (will be extracted from SVG in later tasks)
+  const [animationElements, setAnimationElements] = useState<AnimationElement[]>([]);
+
   // Handler for settings changes with animation awareness
   const handleSettingsChange = useCallback(async () => {
     if (file) {
@@ -103,11 +108,41 @@ export default function AnimationWorkspace() {
       
       if (newSvgContent) {
         setSvgContent(newSvgContent);
-        // TODO: Extract groups and animation data from SVG
-        // This will be implemented in the grouping tasks
+        // Extract animation elements from SVG (simplified for now)
+        const mockElements = extractAnimationElements(newSvgContent);
+        setAnimationElements(mockElements);
       }
     }
   }, [file, options]);
+
+  // Extract animation elements from SVG (simplified implementation)
+  const extractAnimationElements = useCallback((svgContent: string): AnimationElement[] => {
+    try {
+      const parser = new DOMParser();
+      const svgDoc = parser.parseFromString(svgContent, 'image/svg+xml');
+      const elements = svgDoc.querySelectorAll('path[id], rect[id], circle[id], ellipse[id], polygon[id], line[id], g[id]');
+      
+      return Array.from(elements).map((element, index) => {
+        const id = element.getAttribute('id') || `element_${index}`;
+        const type = element.tagName.toLowerCase();
+        
+        // Extract colors from fill and stroke attributes
+        const fill = element.getAttribute('fill');
+        const stroke = element.getAttribute('stroke');
+        const colors = [fill, stroke].filter(color => color && color !== 'none' && color !== 'transparent');
+        
+        return {
+          id,
+          type,
+          colors: colors as string[],
+          // bounds and pathLength will be calculated in future enhancements
+        };
+      });
+    } catch (error) {
+      console.error('Error extracting animation elements:', error);
+      return [];
+    }
+  }, []);
 
   return (
     <div className="bg-gray-50 font-sans text-gray-800 min-h-screen">
@@ -278,13 +313,24 @@ export default function AnimationWorkspace() {
                   <Target className="h-3 w-3 mr-2" />
                   {activePanels.pivot ? "Exit Pivot Mode" : "Set Pivot Points"}
                 </Button>
-                <Button variant="outline" size="sm" className="w-full justify-start text-xs">
+                <Button 
+                  variant={activePanels.colors ? "default" : "outline"} 
+                  size="sm" 
+                  className="w-full justify-start text-xs"
+                  onClick={() => setActivePanels(prev => ({ ...prev, colors: !prev.colors }))}
+                >
                   <Palette className="h-3 w-3 mr-2" />
-                  Extract Colors
+                  {activePanels.colors ? "Hide Colors" : "Extract Colors"}
                 </Button>
-                <Button variant="outline" size="sm" className="w-full justify-start text-xs">
-                  <RotateCcw className="h-3 w-3 mr-2" />
-                  Auto-Group
+                <Button 
+                  variant={activePanels.export ? "default" : "outline"} 
+                  size="sm" 
+                  className="w-full justify-start text-xs"
+                  onClick={() => setActivePanels(prev => ({ ...prev, export: !prev.export }))}
+                  data-testid="toggle-code-export"
+                >
+                  <Code className="h-3 w-3 mr-2" />
+                  {activePanels.export ? "Hide Export" : "Export Code"}
                 </Button>
               </CardContent>
             </Card>
@@ -349,15 +395,24 @@ export default function AnimationWorkspace() {
           {/* Right Sidebar - Settings & Export */}
           <div className="col-span-3 space-y-4">
             
-            {/* Animation Settings */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm flex items-center">
-                  <Settings className="h-4 w-4 mr-2" />
-                  Animation Settings
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
+            {/* Code Export Panel - Show when export mode is active */}
+            {activePanels.export ? (
+              <CodeExportPanel 
+                svgContent={svgContent || ''}
+                pivotPoints={pivotPoints}
+                elements={animationElements}
+                data-testid="code-export-panel"
+              />
+            ) : (
+              /* Animation Settings */
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center">
+                    <Settings className="h-4 w-4 mr-2" />
+                    Animation Settings
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0">
                 <Tabs defaultValue="structure" className="w-full">
                   <TabsList className="grid w-full grid-cols-2 text-xs">
                     <TabsTrigger value="structure">Structure</TabsTrigger>
@@ -406,6 +461,7 @@ export default function AnimationWorkspace() {
                 </Tabs>
               </CardContent>
             </Card>
+            )}
 
             {/* Core Settings (Simplified) */}
             <Card>
