@@ -1,0 +1,299 @@
+Awesome use case. If the goal is “vectorize → tweak → animate on the web (or in-game)” with minimal friction, you want exports that are clean, well-named, and already wired with animation hooks. Here’s a prioritized spec (capabilities + UI) that will make animation easy out of the box, plus concrete dev deliverables and quick-start snippets.
+
+⸻
+
+1) Animation-Ready SVG Export (the foundation)
+
+Why: Animators need stable IDs, predictable structure, and no weird transforms.
+
+Capabilities
+	•	Deterministic IDs & classes: Every <g>/<path>/<rect> gets a unique, human-readable id (wheelRear, eyeLeft) and class tags (part, eye, wheel). Configurable prefix (e.g., idPrefix="bot_").
+	•	ViewBox normalization: Always set viewBox with no hardcoded width/height. Avoid transforms on the root.
+	•	Transform flattening: Bake/flatten nested transforms so each animatable group has a clean local origin. (Transforms in deep trees make CSS/GSAP unpleasant.)
+	•	Z-order preserved: DOM order matches visual stack.
+	•	No background rectangle by default (transparent). Optional “Add background” toggle.
+
+UI
+	•	Export tab: “Animation-ready SVG” toggle with:
+	•	ID prefix input
+	•	Flatten transforms (default ON)
+	•	Preserve group hierarchy (default ON)
+	•	Minify (safe) (default ON)
+
+Dev deliverables
+	•	SVG post-processor that:
+	•	Flattens transforms, preserves viewBox
+	•	Generates stable ids/classes, slugifies names, prevents collisions
+	•	Runs SVGO with a safe config (preserve id, viewBox, class, defs, clipPath, gradient ids)
+
+⸻
+
+2) Grouping & Naming Panel (semantic structure)
+
+Why: Animators need logical parts (arm, wheel, pupil) rather than “path_8421”.
+
+Capabilities
+	•	Tree view of layers/groups with rename, reorder, merge/split.
+	•	Auto-group suggestions: by color, proximity, or path connectivity. One-click “Group by color” for common cases (logos, icons).
+	•	Lock/solo/visibility toggles for parts while previewing.
+
+UI
+	•	Left sidebar: hierarchical list (like Figma/Illustrator). Inline rename; icons for lock/eye; drag-reorder into parent groups.
+
+Dev deliverables
+	•	SVG DOM editor (client-side) backed by a robust parser (e.g., svgson or xmldom) with:
+	•	Operations: wrap selected nodes, unwrap, reorder siblings, rename ids/classes
+	•	Auto-group pass (color buckets, spatial clustering)
+
+⸻
+
+3) Pivot & Transform-Origin Editor (rigging)
+
+Why: Rotation/scale require meaningful anchors (wheel center, shoulder joint).
+
+Capabilities
+	•	Set pivot per group: click canvas to place a crosshair; numeric control (x,y in viewBox units).
+	•	Store as:
+	•	data-pivot="x y" + auto-apply transform-origin: x y; in inline CSS, or
+	•	Option to physically recenter contents around pivot (bake minus a placeholder).
+	•	Quick preview: scrub rotation/scale to verify pivot behavior.
+
+UI
+	•	Canvas tool: select a group → drag crosshair to set pivot. Inputs for x, y. “Test rotate” slider, “Reset”.
+
+Dev deliverables
+	•	Pivot metadata writer:
+	•	Adds style="transform-origin:x y" OR data-pivot
+	•	Optionally bakes pivot by wrapping in a tiny offset group
+	•	Live preview using CSS transforms or SVG transform attributes.
+
+⸻
+
+4) Color System & CSS Variables (theme & runtime control)
+
+Why: Animators frequently tween colors or theme assets.
+
+Capabilities
+	•	Palette extraction: detect unique fills/strokes → assign CSS variables (--c1, --c2, …) with optional semantic names (eyeWhite, skin, brandBlue).
+	•	Replace fill="#AABBCC" with fill="var(--brandBlue)".
+	•	Gradient support: map gradient stops to variables (--g1-stop0, etc.) when possible.
+	•	Generate an exported CSS (and SCSS option) with the palette block.
+
+UI
+	•	Palette panel: swatches, variable names editable, “Link similar colors” threshold slider.
+
+Dev deliverables
+	•	Palette builder + replacer; emits:
+	•	asset.svg (fills/strokes → var(--*))
+	•	asset.colors.css (variables)
+	•	Optional asset.colors.json (for games/tooling)
+
+⸻
+
+5) Stroke/Fill Preparation (common animation hooks)
+
+Why: Two frequent patterns are “draw-on” strokes and transform-safe fills.
+
+Capabilities
+	•	Stroke-draw ready: compute each stroked path’s length → add data-length="123.45"; set initial stroke-dasharray/dashoffset for draw-on animation.
+	•	Expand strokes to fills (optional): for frameworks where stroke scaling is problematic; preserves visual width.
+	•	Outline text (optional): convert <text> to paths for portability, or keep live text with web-font embedding.
+
+UI
+	•	Toggles per export:
+	•	“Prepare stroke draw-on”
+	•	“Expand strokes to fills”
+	•	“Outline text” / “Keep text (embed font)”
+
+Dev deliverables
+	•	Path length calculator (SVGPathElement.getTotalLength fallback via svg-path-properties)
+	•	Stroke expansion pass (e.g., use paper.js/opentype.js/geometry library) with caveats
+	•	Font subset/WOFF2 embed if keeping text
+
+⸻
+
+6) Morph-Ready Paths (optional but powerful)
+
+Why: Path morphs (shape A → B) need compatible command counts and directions.
+
+Capabilities
+	•	Normalize path commands: convert arcs to cubics, ensure consistent direction (CW/CCW), remove self-intersections.
+	•	Pairing tool: UI to pick two shapes and generate morph-ready variants with matched command counts (insert “helper” points).
+	•	Export morph pairs as <path id="mouthA"> & <path id="mouthB"> or in an external JSON.
+
+UI
+	•	“Morph Lab” panel: select source/target paths, one-click “Normalize & Match”, show delta preview.
+
+Dev deliverables
+	•	Path normalization & resampling utilities (e.g., svgpath, flubber-style interpolation helpers)
+	•	Simple pairing manifest (pairs: [{from:'#a', to:'#b'}])
+
+⸻
+
+7) Export Profiles & Code Generators (copy-paste starters)
+
+Why: Most users want to animate immediately.
+
+Capabilities
+	•	Profiles: “GSAP”, “CSS Keyframes”, “Web Animations API”, plus “React Component” export.
+	•	Starter code output using selected IDs, pivots, and palette variables.
+
+UI
+	•	“Generate code” tab with tabs for GSAP / CSS / WAAPI / React. Click-to-copy.
+
+Dev deliverables & snippets
+
+GSAP (starter)
+
+import { gsap } from "gsap";
+
+gsap.set("#wheelRear", { transformOrigin: "50% 50%" });
+gsap.to("#wheelRear", { rotation: 360, repeat: -1, duration: 2, ease: "none" });
+
+gsap.to("#eyeLeft", { scale: 0.6, yoyo: true, repeat: -1, duration: 0.15, repeatDelay: 2 });
+
+gsap.to("#strokePath1", {
+  strokeDashoffset: 0,
+  duration: 1.2,
+  ease: "power2.out"
+});
+
+CSS Keyframes (stroke draw-on & bob)
+
+:root{ --brandBlue:#2a6cf4; }
+#strokePath1{ stroke-dasharray: var(--len1); stroke-dashoffset: var(--len1); }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes bob { 0%,100%{ transform: translateY(0) } 50%{ transform: translateY(-3%) } }
+
+#strokePath1.animate { animation: draw 1.2s ease-out forwards; }
+#body { animation: bob 2.4s ease-in-out infinite; }
+
+Web Animations API (wheel spin)
+
+document.querySelector("#wheelRear").animate(
+  [
+    { transform: "rotate(0deg)" },
+    { transform: "rotate(360deg)" }
+  ],
+  { duration: 2000, iterations: Infinity }
+);
+
+React component export (props control colors)
+
+export default function Bot({ color1="var(--brandBlue)" }) {
+  return (
+    <svg viewBox="0 0 512 512">
+      <g id="wheelRear" style={{ transformOrigin:"256px 420px" }}>
+        <path id="wheelTire" fill={color1} d="..." />
+      </g>
+      {/* ... */}
+    </svg>
+  );
+}
+
+
+⸻
+
+8) Interactivity & Accessibility Scaffolding
+
+Why: Real products need hover/click, keyboard access, and reduced-motion.
+
+Capabilities
+	•	Add role="img", <title>/<desc> with user-editable text.
+	•	Hitbox option: invisible <rect> with pointer-events:all for small targets.
+	•	Auto-inject @media (prefers-reduced-motion: reduce) fallbacks (pause animations / disable bobbing).
+
+UI
+	•	Accessibility panel: Title/Desc fields, “Create hitboxes for groups ”.
+
+Dev deliverables
+	•	A11y metadata writer; reduced-motion CSS template.
+
+⸻
+
+9) Performance & Size Controls
+
+Why: Smooth 60fps depends on DOM size and path complexity.
+
+Capabilities
+	•	Complexity meter: counts of nodes, paths, groups; live FPS guidance (“Good for runtime animation” / “Consider simplifying”).
+	•	“Optimize for animation” preset:
+	•	Merge near-identical colors
+	•	Simplify curves (tolerance slider)
+	•	Remove < 1px specks
+	•	Sprite duplication via <symbol>/<use> for repeated parts.
+
+UI
+	•	Meter at top of export pane; toggle to apply optimization.
+
+Dev deliverables
+	•	Node simplification pass (Douglas–Peucker or similar, safe mode), color merge threshold, “tiny shapes” pruning with visual diff preview.
+
+⸻
+
+10) Game-Friendly Rigs & Manifests
+
+Why: Engines like Phaser/Pixi love structured manifests.
+
+Capabilities
+	•	JSON rig export including:
+	•	parts: [{id, bbox, pivot, class, colorVars}]
+	•	groups: hierarchy
+	•	palette
+	•	optional morphPairs
+	•	Atlas helper (optional later): batch rasterize the SVG groups to a spritesheet + JSON (for engines that prefer textures).
+
+UI
+	•	“Export Rig (JSON)” button; optional “Also export spritesheet” (defer if not needed now).
+
+Dev deliverables
+	•	Rig serializer. (Spritesheet pipeline can come later.)
+
+⸻
+
+“One-Click” Templates (quality-of-life)
+	•	Wheels spin: auto-detect round shapes named *wheel*, add spin snippet.
+	•	Draw-in: apply dasharray to stroke layers, generate CSS/GSAP snippet.
+	•	Blink: toggle opacity/clip on “eye” groups.
+	•	Bob/Float: gentle y-translate loop on a chosen root.
+
+UI: “Apply Template → (Spin Wheels / Draw-in / Blink / Bob)” + code preview.
+
+⸻
+
+Acceptance Tests (what “done” looks like)
+	1.	ID stability: Exporting the same file twice yields the same ids/classes order.
+	2.	Transforms: No nested transforms remain after “flatten transforms”; pivots act as expected.
+	3.	Color variables: Fills are var(--*); editing the generated CSS live updates colors.
+	4.	Stroke draw-on: data-length exists and draw animation works without manual tweaks.
+	5.	Pivot editor: Saved pivots produce correct rotation centers in GSAP, CSS, and WAAPI.
+	6.	Optimization preset: Reduces nodes ≥30% on a complex illustration with <2% visual delta at 100% zoom.
+	7.	Rig JSON: Contains all parts with bbox/pivot; can be consumed in a small Pixi/Phaser demo.
+	8.	A11y & reduced motion: Title/desc present; animations disable under prefers-reduced-motion.
+
+⸻
+
+Common Pitfalls & How This Plan Avoids Them
+	•	IDs lost by minifiers: Use SVGO config that preserves ids/classes/viewBox.
+	•	Broken animation due to transforms: Flatten before export and provide pivots.
+	•	Huge DOMs tanking FPS: “Optimize for animation” preset + complexity meter.
+	•	Unanimatable strokes: Offer stroke→fill expansion and stroke-draw preparation.
+	•	Color theming pain: Convert colors to CSS variables with an editable palette.
+
+⸻
+
+What to hand your developer (short checklist)
+	•	Build SVG post-processor (flatten, ids/classes, safe minify).
+	•	Implement Grouping & Naming panel with auto-group suggestions.
+	•	Add Pivot editor (store + preview) and apply to export.
+	•	Add Color system (CSS variables + palette export).
+	•	Add Stroke hooks (data-length, dasharray) and optional stroke→fill.
+	•	Add Morph Lab (normalize + pair) if you want morphs now; otherwise backlog.
+	•	Ship Export profiles + code generators (GSAP / CSS / WAAPI / React).
+	•	Add A11y & reduced-motion scaffolding.
+	•	Add Complexity meter + Optimize for animation preset.
+	•	(Optional) Rig JSON export for games.
+
+⸻
+
+Confidence: High on the prioritization and the SVG/animation best practices; medium on the exact stroke-to-fill expansion implementation details (library choice and edge cases) and morph normalization (can be tricky with complex paths).
