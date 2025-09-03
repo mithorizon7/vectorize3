@@ -10,9 +10,9 @@ export type SVGOptions = {
   // Trace engine selection
   traceEngine: 'potrace' | 'imagetracer' | 'auto';
   
-  // Potrace specific options
-  shapeStacking: string;
-  groupBy: string;
+  // Advanced vectorization options
+  shapeStacking: 'stacked' | 'layered' | 'flat' | 'placeCutouts';
+  groupBy: 'color' | 'shape' | 'none';
   lineFit: string;
   allowedCurveTypes: string[];
   fillGaps: boolean;

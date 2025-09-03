@@ -339,7 +339,7 @@ export default function ConversionSettings({
               <SettingHeader settingId="shapeStacking" />
               <RadioGroup
                 value={options.shapeStacking}
-                onValueChange={(value) => updateOption("shapeStacking", value)}
+                onValueChange={(value) => updateOption("shapeStacking", value as 'stacked' | 'layered' | 'flat' | 'placeCutouts')}
                 className="space-y-2"
               >
                 <div className="flex items-center space-x-2">
@@ -349,8 +349,16 @@ export default function ConversionSettings({
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="stackTop" id="stack-top" />
-                  <Label htmlFor="stack-top">Stack shapes on top of each other</Label>
+                  <RadioGroupItem value="stacked" id="stacked" />
+                  <Label htmlFor="stacked">Stack shapes on top of each other</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="layered" id="layered" />
+                  <Label htmlFor="layered">Separate layers for each shape</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="flat" id="flat" />
+                  <Label htmlFor="flat">Flatten all shapes into single layer</Label>
                 </div>
               </RadioGroup>
             </div>
@@ -360,7 +368,7 @@ export default function ConversionSettings({
               <SettingHeader settingId="groupBy" />
               <RadioGroup
                 value={options.groupBy}
-                onValueChange={(value) => updateOption("groupBy", value)}
+                onValueChange={(value) => updateOption("groupBy", value as 'color' | 'shape' | 'none')}
                 className="space-y-2"
               >
                 <div className="flex items-center space-x-2">
@@ -372,12 +380,8 @@ export default function ConversionSettings({
                   <Label htmlFor="group-color">Color</Label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="parent" id="group-parent" />
-                  <Label htmlFor="group-parent">Parent</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="layer" id="group-layer" />
-                  <Label htmlFor="group-layer">Layer</Label>
+                  <RadioGroupItem value="shape" id="group-shape" />
+                  <Label htmlFor="group-shape">Shape Type</Label>
                 </div>
               </RadioGroup>
             </div>

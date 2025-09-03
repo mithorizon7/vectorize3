@@ -31,28 +31,28 @@ export const presets: Preset[] = [
       svgVersion: "1.1",
       drawStyle: "fillShapes",
       strokeWidth: 0.25,
-      traceEngine: "auto",
-      shapeStacking: "placeCutouts",
-      groupBy: "none",
-      lineFit: "medium",
+      traceEngine: "imagetracer", // Force ImageTracer for color accuracy
+      shapeStacking: "layered", // Layer shapes for clean brand graphics
+      groupBy: "color", // Group by color for easy brand color management
+      lineFit: "fine", // High precision for crisp logos
       allowedCurveTypes: ["lines", "quadraticBezier", "cubicBezier"],
       fillGaps: true,
       clipOverflow: false,
       nonScalingStroke: true,
-      turdSize: 2,
-      alphaMax: 1.0,
-      optTolerance: 0.2,
-      numberOfColors: 16,
+      turdSize: 1, // Remove even small speckles for clean look
+      alphaMax: 0.8, // Tighter corners for precision
+      optTolerance: 0.1, // High precision optimization
+      numberOfColors: 12, // Optimized for brand colors - not too many, not too few
       colorMode: "color",
-      minColorRatio: 0.01,
+      minColorRatio: 0.005, // Lower threshold to preserve brand colors
       colorQuantization: "floyd-steinberg",
-      blurRadius: 0,
+      blurRadius: 0, // No blur for sharp logos
       preserveColors: true,
       colorSampling: 1,
-      ltres: 1,
-      qtres: 1,
-      pathomit: 8,
-      roundcoords: 1,
+      ltres: 0.5, // Lower line threshold for detail preservation
+      qtres: 0.5, // Lower quadratic threshold for smooth curves
+      pathomit: 4, // Keep more detail for logos
+      roundcoords: 2, // Higher precision coordinates
       customPalette: [],
     },
     colorSettings: {
@@ -69,28 +69,28 @@ export const presets: Preset[] = [
       svgVersion: "1.1",
       drawStyle: "fillShapes",
       strokeWidth: 1.0,
-      traceEngine: "auto",
-      shapeStacking: "placeCutouts",
-      groupBy: "none",
+      traceEngine: "potrace", // Use Potrace for smaller file sizes
+      shapeStacking: "flat", // Flatten for minimal complexity
+      groupBy: "shape", // Group by shape type for UI consistency
       lineFit: "medium",
-      allowedCurveTypes: ["lines", "quadraticBezier", "cubicBezier"],
-      fillGaps: false,
+      allowedCurveTypes: ["lines", "quadraticBezier"], // Simpler curves for icons
+      fillGaps: false, // Keep clean edges
       clipOverflow: false,
       nonScalingStroke: true,
-      turdSize: 2,
-      alphaMax: 1.0,
-      optTolerance: 0.2,
-      numberOfColors: 8,
-      colorMode: "color",
-      minColorRatio: 0.02,
-      colorQuantization: "floyd-steinberg",
+      turdSize: 4, // Remove more noise for clean icons
+      alphaMax: 1.2, // Slightly softer corners for UI friendliness
+      optTolerance: 0.3, // Balance file size vs quality
+      numberOfColors: 4, // Minimal colors for small file size
+      colorMode: "grayscale", // Single-color icons
+      minColorRatio: 0.05, // Higher threshold to reduce unnecessary detail
+      colorQuantization: "default", // Simple quantization for speed
       blurRadius: 0,
       preserveColors: false,
-      colorSampling: 1,
-      ltres: 1,
-      qtres: 1,
-      pathomit: 8,
-      roundcoords: 1,
+      colorSampling: 0, // Disable for speed
+      ltres: 1.5, // Higher threshold for simpler paths
+      qtres: 1.5,
+      pathomit: 12, // Remove small paths aggressively
+      roundcoords: 1, // Standard precision is enough
       customPalette: [],
     },
     colorSettings: {
@@ -183,26 +183,26 @@ export const presets: Preset[] = [
       svgVersion: "1.1",
       drawStyle: "fillShapes",
       strokeWidth: 0.5,
-      traceEngine: "auto",
-      shapeStacking: "placeCutouts",
-      groupBy: "none",
-      lineFit: "medium",
+      traceEngine: "imagetracer", // Color tracing for rich animations
+      shapeStacking: "layered", // Layered structure for animation targeting
+      groupBy: "color", // Group by color for easy animation control
+      lineFit: "fine", // Smooth paths for animation
       allowedCurveTypes: ["lines", "quadraticBezier", "cubicBezier"],
       fillGaps: false,
       clipOverflow: false,
       nonScalingStroke: true,
-      turdSize: 2,
-      alphaMax: 1.0,
-      optTolerance: 0.2,
-      numberOfColors: 16,
+      turdSize: 1, // Clean details for animation
+      alphaMax: 0.9, // Smooth corners for fluid animation
+      optTolerance: 0.15, // Balance between smoothness and file size
+      numberOfColors: 16, // Rich color palette for animations
       colorMode: "color",
       minColorRatio: 0.01,
       colorQuantization: "floyd-steinberg",
       blurRadius: 0,
       preserveColors: true,
       colorSampling: 1,
-      ltres: 1,
-      qtres: 1,
+      ltres: 0.8, // Lower threshold for smooth animation paths
+      qtres: 0.8,
       pathomit: 6,
       roundcoords: 1,
       customPalette: [],
@@ -218,30 +218,30 @@ export const presets: Preset[] = [
     options: {
       fileFormat: "svg",
       svgVersion: "1.1",
-      drawStyle: "fillShapes",
+      drawStyle: "strokeOutlines", // Stroke-only for manufacturing
       strokeWidth: 1.0,
-      traceEngine: "potrace",
-      shapeStacking: "placeCutouts",
-      groupBy: "none",
-      lineFit: "medium",
-      allowedCurveTypes: ["lines", "quadraticBezier"],
+      traceEngine: "potrace", // Potrace for simple, continuous paths
+      shapeStacking: "flat", // Flat structure for manufacturing tools
+      groupBy: "shape", // Group by shape for tool path optimization
+      lineFit: "coarse", // Simplified paths for manufacturing
+      allowedCurveTypes: ["lines"], // Lines only for CNC compatibility
       fillGaps: false,
       clipOverflow: false,
       nonScalingStroke: true,
-      turdSize: 2,
-      alphaMax: 1.0,
-      optTolerance: 0.2,
-      numberOfColors: 4,
+      turdSize: 8, // Aggressively remove small details
+      alphaMax: 1.5, // Very smooth corners
+      optTolerance: 0.5, // Heavy simplification
+      numberOfColors: 1, // Single color/path for manufacturing
       colorMode: "grayscale",
-      minColorRatio: 0.05,
+      minColorRatio: 0.1, // High threshold for simplicity
       colorQuantization: "default",
       blurRadius: 0,
       preserveColors: false,
-      colorSampling: 1,
-      ltres: 1,
-      qtres: 1,
-      pathomit: 8,
-      roundcoords: 1,
+      colorSampling: 0,
+      ltres: 2, // High threshold for simple lines
+      qtres: 2,
+      pathomit: 16, // Remove small paths aggressively
+      roundcoords: 0, // Integer coordinates for manufacturing
       customPalette: [],
     },
     colorSettings: {

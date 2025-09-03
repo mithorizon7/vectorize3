@@ -5,6 +5,7 @@ import { JSDOM } from 'jsdom';
 import sharp from 'sharp';
 import { processImageBuffer } from '../utils/imageProcessing';
 import { ensureTransparentBackground, removeTracerBackgrounds } from '../utils/transparencyUtils';
+import { applySVGGrouping, optimizeSVGForUseCase } from '../utils/svgGroupingUtils';
 // Use dynamic import for imagetracer since it's a dual module (supports CJS and ESM)
 // This is a workaround for the "require is not defined in ES module scope" error
 let ImageTracer: any = null;
@@ -21,9 +22,9 @@ export interface ColorTracingOptions {
   strokeWidth: number;
   traceEngine?: 'potrace' | 'imagetracer' | 'auto';
   
-  // We accept but ignore these Potrace-specific options
-  shapeStacking?: string;
-  groupBy?: string;
+  // Advanced grouping options now supported by ImageTracer
+  shapeStacking?: 'stacked' | 'layered' | 'flat' | 'placeCutouts';
+  groupBy?: 'color' | 'shape' | 'none';
   lineFit?: string;
   allowedCurveTypes?: string[];
   fillGaps?: boolean;
@@ -163,7 +164,22 @@ export async function convertImageToColorSVG(
           console.log("Applying transparent background processing...");
           processedSVG = removeTracerBackgrounds(processedSVG, 'imagetracer');
           
-          resolve(processedSVG);
+          // Apply advanced SVG grouping and layering for ImageTracer
+          console.log("Applying SVG grouping and layering to ImageTracer output...");
+          if (options.shapeStacking || options.groupBy) {
+            applySVGGrouping(processedSVG, {
+              shapeStacking: options.shapeStacking || 'placeCutouts',
+              groupBy: options.groupBy || 'none',
+              allowedCurveTypes: options.allowedCurveTypes
+            }).then(groupedSVG => {
+              resolve(groupedSVG);
+            }).catch(err => {
+              console.error("Error applying SVG grouping:", err);
+              resolve(processedSVG); // Return original on error
+            });
+          } else {
+            resolve(processedSVG);
+          }
         } catch (traceErr) {
           console.error("Error in ImageTracer.imageTracer:", traceErr);
           reject(new Error(`ImageTracer error: ${traceErr}`));

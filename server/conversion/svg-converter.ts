@@ -5,13 +5,14 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { processImageBuffer } from '../utils/imageProcessing';
 import { ensureTransparentBackground, removeTracerBackgrounds } from '../utils/transparencyUtils';
+import { applySVGGrouping, optimizeSVGForUseCase } from '../utils/svgGroupingUtils';
 
 interface TracingOptions {
   fileFormat: string;
   svgVersion: string;
   drawStyle: string;
-  shapeStacking: string;
-  groupBy: string;
+  shapeStacking: 'stacked' | 'layered' | 'flat' | 'placeCutouts';
+  groupBy: 'color' | 'shape' | 'none';
   lineFit: string;
   allowedCurveTypes: string[];
   fillGaps: boolean;
@@ -101,6 +102,14 @@ export async function convertImageToSVG(
       // IMPORTANT: Remove any backgrounds by default for transparent output
       console.log("Applying transparent background processing...");
       result = removeTracerBackgrounds(result, 'potrace');
+      
+      // Apply advanced SVG grouping and layering
+      console.log("Applying SVG grouping and layering...");
+      result = await applySVGGrouping(result, {
+        shapeStacking: options.shapeStacking,
+        groupBy: options.groupBy,
+        allowedCurveTypes: options.allowedCurveTypes
+      });
       
       // Apply non-scaling stroke if selected
       if (options.nonScalingStroke) {
