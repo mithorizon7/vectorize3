@@ -156,6 +156,48 @@ export default function Home() {
                 batchMode={batchMode}
                 onSettingsChange={handleSettingsChange}
               />
+              
+              {/* Enhanced Status Display with Professional Loading Animation */}
+              {conversionStatus.status !== "idle" && (
+                <div className={`mt-4 p-4 rounded-lg border transition-all duration-300 ${
+                  conversionStatus.status === "loading" ? "bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 shadow-sm" :
+                  conversionStatus.status === "success" ? "bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 shadow-sm" :
+                  conversionStatus.status === "error" ? "bg-gradient-to-r from-red-50 to-pink-50 border-red-200 shadow-sm" : ""
+                }`}>
+                  <div className="flex items-center">
+                    {conversionStatus.status === "loading" && (
+                      <div className="flex items-center mr-3">
+                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent mr-2"></div>
+                        <div className="flex space-x-1">
+                          <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+                          <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+                          <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+                        </div>
+                      </div>
+                    )}
+                    {conversionStatus.status === "success" && (
+                      <div className="h-5 w-5 mr-3 text-green-600 animate-pulse">✅</div>
+                    )}
+                    {conversionStatus.status === "error" && (
+                      <div className="h-5 w-5 mr-3 text-red-600">❌</div>
+                    )}
+                    <div className="flex-1">
+                      <p className={`text-sm font-medium ${
+                        conversionStatus.status === "loading" ? "text-blue-800" :
+                        conversionStatus.status === "success" ? "text-green-800" :
+                        conversionStatus.status === "error" ? "text-red-800" : ""
+                      }`}>
+                        {conversionStatus.message}
+                      </p>
+                      {conversionStatus.status === "loading" && (
+                        <p className="text-xs text-blue-600 mt-1 opacity-75">
+                          🔄 Analyzing edges, paths, and optimizing vector output...
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

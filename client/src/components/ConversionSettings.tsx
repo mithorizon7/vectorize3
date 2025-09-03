@@ -1,4 +1,4 @@
-import { useState, Dispatch, SetStateAction } from "react";
+import { useState, useEffect, Dispatch, SetStateAction } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
@@ -43,13 +43,27 @@ export default function ConversionSettings({
   const [activePreset, setActivePreset] = useState<string | null>(null);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
 
-  // Trigger settings change callback after a small delay to avoid too many conversions
-  const triggerSettingsChange = () => {
+  // Improved debouncing system for real-time preview updates
+  const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
+  
+  const triggerSettingsChange = (immediate = false) => {
     if (onSettingsChange) {
       // Check if we have files to process
       if ((batchMode && files && files.length > 0) || (!batchMode && currentFile)) {
-        // Add a small delay to avoid too many conversions while the user is still changing options
-        setTimeout(() => onSettingsChange(), 500);
+        
+        // Clear existing timer
+        if (debounceTimer) {
+          clearTimeout(debounceTimer);
+        }
+        
+        if (immediate) {
+          // For critical settings like preserve colors, trigger immediately
+          onSettingsChange();
+        } else {
+          // For other settings, use debounced approach with shorter delay for better UX
+          const newTimer = setTimeout(() => onSettingsChange(), 300);
+          setDebounceTimer(newTimer);
+        }
       }
     }
   };
@@ -86,12 +100,21 @@ export default function ConversionSettings({
     triggerSettingsChange();
   };
 
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+    };
+  }, [debounceTimer]);
+
   const handleApplyPreset = (preset: Preset) => {
     setOptions(applyPreset(preset));
     setActivePreset(preset.id);
     
-    // Trigger conversion with new preset if a file is available
-    triggerSettingsChange();
+    // Trigger immediate conversion for preset changes
+    triggerSettingsChange(true);
   };
   
   // Helper to generate setting headers with tooltips
@@ -120,6 +143,54 @@ export default function ConversionSettings({
         </p>
         <div className="mt-2 p-2 bg-blue-50 border border-blue-100 rounded text-xs text-blue-800">
           ✨ Changes will trigger immediate re-conversion and update the preview when an image is loaded
+        </div>
+        
+        {/* Preserve Original Colors - Primary Setting */}
+        <div className="mt-4 p-3 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center">
+                <Palette className="h-5 w-5 text-purple-600 mr-2" />
+                <div>
+                  <h4 className="text-sm font-medium text-gray-900">Preserve Original Colors</h4>
+                  <p className="text-xs text-gray-600 mt-1">Keep the original image colors instead of converting to black silhouettes</p>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="preserve-colors-main"
+                checked={options.preserveColors}
+                onChange={(e) => {
+                  const preserveColors = e.target.checked;
+                  // When preserving colors, force ImageTracer and set optimal color settings
+                  updateOption('preserveColors', preserveColors);
+                  if (preserveColors) {
+                    updateOption('traceEngine', 'imagetracer');
+                    updateOption('numberOfColors', Math.max(options.numberOfColors, 16));
+                    updateOption('colorQuantization', 'floyd-steinberg');
+                    updateOption('minColorRatio', 0.01);
+                  }
+                  // Trigger immediate conversion for this critical setting
+                  setTimeout(() => triggerSettingsChange(true), 100);
+                }}
+                className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+              />
+              <SettingInfoTooltip 
+                content={
+                  <div>
+                    <p>When enabled, uses advanced color tracing to preserve the original image colors.</p>
+                    <ul className="mt-2 text-xs space-y-1">
+                      <li>• Automatically switches to ImageTracer engine</li>
+                      <li>• Optimizes color count and quantization</li>
+                      <li>• Perfect for photos and colorful graphics</li>
+                    </ul>
+                  </div>
+                } 
+              />
+            </div>
+          </div>
         </div>
       </CardContent>
 

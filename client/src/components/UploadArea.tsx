@@ -20,11 +20,14 @@ export async function convertImageWithOptions(
   batchLength = 1
 ): Promise<string | null> {
   // Set detailed loading status for better UX
+  const fileName = file.name || 'image';
+  const fileSize = (file.size / 1024).toFixed(1); // Convert to KB
+  
   setConversionStatus({
     status: "loading",
     message: isBatch 
-      ? `Converting ${fileIndex + 1} of ${batchLength}${file.name ? ` (${file.name})` : ''}...` 
-      : `Transforming ${file.name || 'image'} to vector graphics...`,
+      ? `Converting ${fileIndex + 1} of ${batchLength} (${fileName}, ${fileSize}KB)...` 
+      : `🔄 Processing ${fileName} (${fileSize}KB) - Converting to vector graphics...`,
   });
 
   try {
@@ -56,23 +59,42 @@ export async function convertImageWithOptions(
     
     console.log("Received SVG data:", !!data.svg, data.svg ? data.svg.substring(0, 100) + "..." : "No SVG data");
     
-    // Provide more descriptive success messages
+    // Provide more descriptive success messages with helpful details
+    const svgSize = data.svg ? (data.svg.length / 1024).toFixed(1) : '0';
+    const compressionRatio = file.size > 0 ? Math.round((1 - (data.svg?.length || 0) / file.size) * 100) : 0;
+    
     setConversionStatus({
       status: "success",
       message: isBatch 
-        ? `Converted ${fileIndex + 1} of ${batchLength}${file.name ? ` (${file.name})` : ''}` 
-        : `SVG ready${file.name ? ` (${file.name.split('.')[0]}.svg)` : ''}`,
+        ? `✅ Converted ${fileIndex + 1} of ${batchLength} (${file.name || 'file'})` 
+        : `✅ Conversion complete! SVG ready (${svgSize}KB, ${compressionRatio > 0 ? compressionRatio + '% smaller' : 'vector format'})`,
     });
     
     return data.svg;
   } catch (error) {
     console.error('Error converting image:', error);
-    // Enhanced error messages for better user feedback
+    // Enhanced error messages for better user feedback with helpful suggestions
+    let errorMessage = "An unexpected error occurred during conversion.";
+    let suggestion = "";
+    
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      
+      // Add helpful suggestions based on error type
+      if (errorMessage.includes('too large') || errorMessage.includes('size')) {
+        suggestion = " Try reducing the image size or dimensions.";
+      } else if (errorMessage.includes('format') || errorMessage.includes('unsupported')) {
+        suggestion = " Please use JPEG, PNG, GIF, BMP, TIFF, WebP, or SVG formats.";
+      } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+        suggestion = " Check your internet connection and try again.";
+      } else if (errorMessage.includes('memory') || errorMessage.includes('timeout')) {
+        suggestion = " Try a smaller or simpler image.";
+      }
+    }
+    
     setConversionStatus({
       status: "error",
-      message: error instanceof Error 
-        ? error.message 
-        : "An unexpected error occurred during conversion.",
+      message: `❌ ${errorMessage}${suggestion}`,
     });
     return null;
   }
