@@ -13,7 +13,7 @@ import {
 import { convertImageToSVG } from '../conversion/svg-converter';
 import { convertImageToColorSVG, detectColorComplexity } from '../conversion/color-tracer';
 import { applySvgColor, setTransparentBackground } from '../conversion/svg-converter';
-import { sanitizeSvgContent } from '../validation/inputValidation';
+import { sanitizeSvgContent, validateImageFormat } from '../validation/inputValidation';
 
 // Socket.io server instance - will be set when initializing the processor
 let io: SocketIOServer | null = null;
@@ -43,9 +43,50 @@ async function processConversionJob(job: Job<ConversionJobPayload>) {
       throw new Error(`File does not exist at path: ${filePath}`);
     }
     
-    // Read the file
+    // Read and validate the file format
     const fileBuffer = fs.readFileSync(filePath);
-    emitProgress(job.id.toString(), 30, 'Analyzing image...');
+    emitProgress(job.id.toString(), 25, 'Validating image format...');
+    
+    // Validate image format using Sharp - get mimetype from file extension
+    const ext = filePath.toLowerCase().split('.').pop();
+    const mimetypeMap: Record<string, string> = {
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'gif': 'image/gif',
+      'bmp': 'image/bmp',
+      'tiff': 'image/tiff',
+      'tif': 'image/tiff',
+      'webp': 'image/webp',
+      'svg': 'image/svg+xml'
+    };
+    
+    const mimetype = mimetypeMap[ext || ''] || 'application/octet-stream';
+    const formatValidation = await validateImageFormat(fileBuffer, mimetype);
+    
+    if (!formatValidation.isValid) {
+      throw new Error(`Invalid image format: ${formatValidation.error}`);
+    }
+    
+    console.log(`Queue processor validated ${formatValidation.detectedFormat.toUpperCase()} image format`);
+    
+    // Handle SVG files differently (they're already vector format)
+    if (formatValidation.detectedFormat === 'svg') {
+      console.log("SVG file detected in queue - returning original content (already vector format)");
+      const svgContent = fileBuffer.toString('utf8');
+      const sanitizedSvg = sanitizeSvgContent(svgContent);
+      
+      emitProgress(
+        job.id.toString(), 
+        100, 
+        'SVG processing complete',
+        { svg: sanitizedSvg }
+      );
+      
+      return { svg: sanitizedSvg };
+    }
+    
+    emitProgress(job.id.toString(), 35, 'Analyzing image...');
     
     let result: string;
     
