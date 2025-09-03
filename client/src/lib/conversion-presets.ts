@@ -108,27 +108,27 @@ export const presets: Preset[] = [
       svgVersion: "1.1",
       drawStyle: "fillShapes",
       strokeWidth: 0.5,
-      traceEngine: "auto",
-      shapeStacking: "placeCutouts",
-      groupBy: "none",
-      lineFit: "medium",
+      traceEngine: "imagetracer", // Force color tracing for illustrations
+      shapeStacking: "stacked", // Stacked for natural illustration layering
+      groupBy: "color", // Color grouping for illustration editing
+      lineFit: "medium", // Balance between detail and performance
       allowedCurveTypes: ["lines", "quadraticBezier", "cubicBezier"],
       fillGaps: true,
       clipOverflow: false,
       nonScalingStroke: true,
-      turdSize: 2,
+      turdSize: 2, // Keep moderate detail
       alphaMax: 1.0,
-      optTolerance: 0.2,
-      numberOfColors: 20,
+      optTolerance: 0.2, // Balance optimization
+      numberOfColors: 24, // Rich color palette for illustrations
       colorMode: "color",
-      minColorRatio: 0.01,
+      minColorRatio: 0.008, // Lower threshold for illustration detail
       colorQuantization: "floyd-steinberg",
       blurRadius: 0,
       preserveColors: true,
       colorSampling: 1,
-      ltres: 1,
-      qtres: 1,
-      pathomit: 8,
+      ltres: 0.9, // Slightly lower for more detail
+      qtres: 0.9, // Preserve curves in illustrations
+      pathomit: 6, // Keep more paths for illustration detail
       roundcoords: 1,
       customPalette: [],
     },
@@ -145,28 +145,28 @@ export const presets: Preset[] = [
       svgVersion: "1.1",
       drawStyle: "fillShapes",
       strokeWidth: 1.0,
-      traceEngine: "auto",
-      shapeStacking: "placeCutouts",
-      groupBy: "none",
-      lineFit: "medium",
-      allowedCurveTypes: ["lines", "quadraticBezier", "cubicBezier"],
-      fillGaps: false,
+      traceEngine: "imagetracer", // Color tracing for chart colors and technical precision
+      shapeStacking: "layered", // Layered for clear technical hierarchy
+      groupBy: "color", // Group by color for technical diagram organization
+      lineFit: "fine", // High precision for technical accuracy
+      allowedCurveTypes: ["lines", "quadraticBezier"], // Simpler curves for technical clarity
+      fillGaps: false, // Maintain precise edges
       clipOverflow: false,
       nonScalingStroke: true,
-      turdSize: 2,
-      alphaMax: 1.0,
-      optTolerance: 0.2,
-      numberOfColors: 12,
+      turdSize: 3, // Remove small noise for clean technical look
+      alphaMax: 0.9, // Slightly sharper corners for precision
+      optTolerance: 0.15, // Higher precision optimization
+      numberOfColors: 12, // Limited palette for technical clarity
       colorMode: "color",
-      minColorRatio: 0.01,
+      minColorRatio: 0.015, // Higher threshold for cleaner technical output
       colorQuantization: "floyd-steinberg",
-      blurRadius: 0,
+      blurRadius: 0, // No blur for technical precision
       preserveColors: true,
       colorSampling: 1,
-      ltres: 1,
-      qtres: 1,
-      pathomit: 8,
-      roundcoords: 1,
+      ltres: 0.7, // Lower threshold for technical precision
+      qtres: 1.2, // Balance curve precision
+      pathomit: 10, // Remove more small paths for clean technical look
+      roundcoords: 2, // Higher precision for technical diagrams
       customPalette: [],
     },
     colorSettings: {
