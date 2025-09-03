@@ -128,7 +128,12 @@ export async function convertImageToSVG(
           generateStableIds: options.generateStableIds || true,
           optimizeForAnimation: true,
           optimizeViewBox: true,
-          extractColors: true
+          extractColors: true,
+          prepareStrokes: true,
+          setupDrawOn: true,
+          enhanceAccessibility: true,
+          enablePerformanceOptimization: true,
+          targetReduction: 30
         };
         
         const processed = await processForAnimation(result, animationOptions);

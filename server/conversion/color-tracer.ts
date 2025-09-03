@@ -191,7 +191,12 @@ export async function convertImageToColorSVG(
                   generateStableIds: options.generateStableIds || true,
                   optimizeForAnimation: true,
                   optimizeViewBox: true,
-                  extractColors: true
+                  extractColors: true,
+                  prepareStrokes: true,
+                  setupDrawOn: true,
+                  enhanceAccessibility: true,
+                  enablePerformanceOptimization: true,
+                  targetReduction: 30
                 };
                 
                 const processed = await processForAnimation(finalSVG, animationOptions);
@@ -216,7 +221,12 @@ export async function convertImageToColorSVG(
                 generateStableIds: options.generateStableIds || true,
                 optimizeForAnimation: true,
                 optimizeViewBox: true,
-                extractColors: true
+                extractColors: true,
+                prepareStrokes: true,
+                setupDrawOn: true,
+                enhanceAccessibility: true,
+                enablePerformanceOptimization: true,
+                targetReduction: 30
               };
               
               processForAnimation(processedSVG, animationOptions).then(processed => {

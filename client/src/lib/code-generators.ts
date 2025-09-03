@@ -19,13 +19,16 @@ export interface AnimationElement {
   pivot?: PivotPoint;
   colors?: string[];
   pathLength?: number;
+  hasStroke?: boolean;
+  strokeWidth?: string;
+  strokeColor?: string;
 }
 
 export interface CodeGeneratorOptions {
   framework: 'gsap' | 'css' | 'waapi' | 'react';
   includeComments: boolean;
   useCSSVariables: boolean;
-  animationType: 'entrance' | 'hover' | 'click' | 'scroll' | 'loop' | 'custom';
+  animationType: 'entrance' | 'hover' | 'click' | 'scroll' | 'loop' | 'drawon' | 'custom';
   duration: number;
   easing: string;
   stagger?: number;
@@ -141,6 +144,9 @@ function generateGSAPTimeline(elements: AnimationElement[], options: CodeGenerat
       case 'scroll':
         animations.push(generateScrollAnimation(selector, element, delay, options));
         break;
+      case 'drawon':
+        animations.push(generateDrawOnAnimation(selector, element, delay, options));
+        break;
       default:
         animations.push(generateCustomAnimation(selector, element, delay, options));
     }
@@ -224,6 +230,27 @@ function generateScrollAnimation(selector: string, element: AnimationElement, de
     y: 0,
     opacity: 1,
     scale: 1,
+    duration: ${options.duration},
+    ease: "${options.easing}",
+    delay: ${delay.toFixed(2)}
+  });`;
+}
+
+/**
+ * Generate draw-on animations for stroked paths
+ */
+function generateDrawOnAnimation(selector: string, element: AnimationElement, delay: number, options: CodeGeneratorOptions): string {
+  if (!element.pathLength || !element.hasStroke) {
+    return `// ${selector} has no stroke or path length - skipping draw-on animation`;
+  }
+  
+  const pathLength = Math.ceil(element.pathLength);
+  
+  return `tl.fromTo("${selector}", {
+    strokeDasharray: ${pathLength},
+    strokeDashoffset: ${pathLength}
+  }, {
+    strokeDashoffset: 0,
     duration: ${options.duration},
     ease: "${options.easing}",
     delay: ${delay.toFixed(2)}
@@ -464,6 +491,14 @@ function generateCSSKeyframes(elements: AnimationElement[], options: CodeGenerat
   100% { transform: scale(1) rotate(0deg); }
 }`);
       break;
+
+    case 'drawon':
+      keyframes.push(`
+@keyframes drawOn {
+  from { stroke-dashoffset: var(--path-length); }
+  to { stroke-dashoffset: 0; }
+}`);
+      break;
   }
 
   return keyframes.join('\n');
@@ -486,6 +521,23 @@ function generateCSSAnimations(elements: AnimationElement[], options: CodeGenera
       case 'entrance': animationName = 'fadeInScale'; break;
       case 'loop': animationName = 'rotateLoop'; break;
       case 'hover': animationName = 'scaleHover'; break;
+      case 'drawon': 
+        animationName = 'drawOn';
+        // Set up stroke-dasharray for draw-on animation
+        if (element.pathLength) {
+          const pathLength = Math.ceil(element.pathLength);
+          animations.push(`
+#${element.id} {
+  --path-length: ${pathLength};
+  stroke-dasharray: ${pathLength};
+  stroke-dashoffset: ${pathLength};
+  transform-origin: ${transformOrigin};
+  transform-box: fill-box;
+  animation: ${animationName} ${options.duration}s ${options.easing} ${delay.toFixed(2)}s both;
+}`);
+          return; // Skip the standard animation setup below
+        }
+        break;
       default: animationName = 'fadeInScale';
     }
 
@@ -774,3 +826,103 @@ function convertEasingToCSS(easing: string): string {
   
   return easingMap[easing] || 'ease-out';
 }
+
+/**
+ * Generate React component with animations
+ */
+export function generateReactCode(elements: AnimationElement[], options: CodeGeneratorOptions): string {
+  const componentName = 'AnimatedSVG';
+  
+  return `import React, { useEffect, useRef, useState } from 'react';
+import { gsap } from 'gsap';
+
+interface ${componentName}Props {
+  className?: string;
+  autoPlay?: boolean;
+  onComplete?: () => void;
+  svgContent: string;
+  respectReducedMotion?: boolean;
+}
+
+export const ${componentName}: React.FC<${componentName}Props> = ({ 
+  className = '', 
+  autoPlay = true,
+  onComplete,
+  svgContent,
+  respectReducedMotion = true
+}) => {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const timelineRef = useRef<gsap.core.Timeline | null>(null);
+  const [isVisible, setIsVisible] = useState(false);
+
+  // Intersection Observer for performance
+  useEffect(() => {
+    if (!svgRef.current) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsVisible(entry.isIntersecting);
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(svgRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!svgRef.current || !isVisible) return;
+
+    // Respect reduced motion preference
+    const prefersReducedMotion = 
+      respectReducedMotion && 
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    
+    if (prefersReducedMotion) {
+      ${elements.map(el => `gsap.set("#${el.id}", { opacity: 1 });`).join('\n      ')}
+      onComplete?.();
+      return;
+    }
+
+    // Create animation timeline
+    const tl = gsap.timeline({
+      paused: !autoPlay,
+      onComplete
+    });
+
+${generateGSAPAnimations(elements, options).split('\n').map(line => `    ${line}`).join('\n')}
+
+    timelineRef.current = tl;
+
+    return () => {
+      tl.kill();
+    };
+  }, [autoPlay, onComplete, isVisible]);
+
+  return (
+    <div className={\`animated-svg-container \${className}\`}>
+      <div 
+        dangerouslySetInnerHTML={{ __html: svgContent }}
+        ref={(el) => {
+          const svgElement = el?.querySelector('svg');
+          if (svgElement) {
+            (svgRef as any).current = svgElement;
+          }
+        }}
+      />
+      
+      <style jsx>{\`
+        .animated-svg-container { display: inline-block; position: relative; }
+        
+        @media (prefers-reduced-motion: reduce) {
+          .animated-svg-container * {
+            animation-duration: 0.01ms !important;
+            transition-duration: 0.01ms !important;
+          }
+        }
+      \`}</style>
+    </div>
+  );
+};
+
+export default \${componentName};\`;

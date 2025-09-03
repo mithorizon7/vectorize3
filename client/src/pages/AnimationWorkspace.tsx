@@ -24,6 +24,7 @@ import SVGPreview from "@/components/SVGPreview";
 import ConversionSettings from "@/components/ConversionSettings";
 import { PivotPointEditor } from "@/components/PivotPointEditor";
 import { CodeExportPanel } from "@/components/CodeExportPanel";
+import { GroupingPanel, SVGGroup } from "@/components/GroupingPanel";
 import { SVGOptions, initialSVGOptions } from "@/lib/svg-converter";
 import { AnimationElement } from "@/lib/code-generators";
 
@@ -91,6 +92,9 @@ export default function AnimationWorkspace() {
   // Mock animation elements for testing (will be extracted from SVG in later tasks)
   const [animationElements, setAnimationElements] = useState<AnimationElement[]>([]);
 
+  // SVG structure state for grouping panel
+  const [svgStructure, setSvgStructure] = useState<SVGGroup[]>([]);
+
   // Handler for settings changes with animation awareness
   const handleSettingsChange = useCallback(async () => {
     if (file) {
@@ -115,7 +119,7 @@ export default function AnimationWorkspace() {
     }
   }, [file, options]);
 
-  // Extract animation elements from SVG (simplified implementation)
+  // Extract animation elements from SVG (enhanced implementation)
   const extractAnimationElements = useCallback((svgContent: string): AnimationElement[] => {
     try {
       const parser = new DOMParser();
@@ -129,13 +133,24 @@ export default function AnimationWorkspace() {
         // Extract colors from fill and stroke attributes
         const fill = element.getAttribute('fill');
         const stroke = element.getAttribute('stroke');
+        const strokeWidth = element.getAttribute('stroke-width');
         const colors = [fill, stroke].filter(color => color && color !== 'none' && color !== 'transparent');
+        
+        // Extract path length from data attributes (added by stroke preparation)
+        const pathLengthAttr = element.getAttribute('data-length');
+        const pathLength = pathLengthAttr ? parseFloat(pathLengthAttr) : undefined;
+        
+        // Check if element has stroke for draw-on animations
+        const hasStroke = !!(stroke && stroke !== 'none' && stroke !== 'transparent');
         
         return {
           id,
           type,
           colors: colors as string[],
-          // bounds and pathLength will be calculated in future enhancements
+          pathLength,
+          hasStroke,
+          strokeWidth: strokeWidth || undefined,
+          strokeColor: hasStroke ? (stroke || undefined) : undefined,
         };
       });
     } catch (error) {
@@ -223,76 +238,11 @@ export default function AnimationWorkspace() {
               </CardContent>
             </Card>
 
-            {/* Layer Tree Panel */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm flex items-center justify-between">
-                  <div className="flex items-center">
-                    <Layers className="h-4 w-4 mr-2" />
-                    Layers
-                  </div>
-                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                    <Settings className="h-3 w-3" />
-                  </Button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                {animationData.groups.length > 0 ? (
-                  <div className="space-y-1">
-                    {animationData.groups.map((group) => (
-                      <div
-                        key={group.id}
-                        className={`flex items-center justify-between p-2 rounded text-xs border transition-colors ${
-                          animationData.selectedGroupId === group.id 
-                            ? "bg-blue-50 border-blue-200" 
-                            : "hover:bg-gray-50 border-transparent"
-                        }`}
-                      >
-                        <div className="flex items-center space-x-2 flex-1 min-w-0">
-                          <div className="w-3 h-3 bg-gradient-to-br from-purple-400 to-blue-500 rounded-sm"></div>
-                          <span className="truncate font-medium">{group.name}</span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="h-5 w-5 p-0"
-                            onClick={() => {
-                              // TODO: Toggle visibility
-                            }}
-                          >
-                            {group.visible ? (
-                              <Eye className="h-3 w-3" />
-                            ) : (
-                              <EyeOff className="h-3 w-3 opacity-50" />
-                            )}
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="h-5 w-5 p-0"
-                            onClick={() => {
-                              // TODO: Toggle lock
-                            }}
-                          >
-                            {group.locked ? (
-                              <Lock className="h-3 w-3" />
-                            ) : (
-                              <Unlock className="h-3 w-3 opacity-50" />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <Layers className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                    <p className="text-xs">Upload an image to see layers</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            {/* Grouping Panel - Professional layer management */}
+            <GroupingPanel 
+              svgContent={svgContent || ''}
+              onStructureChange={setSvgStructure}
+            />
 
             {/* Quick Tools Panel */}
             <Card>

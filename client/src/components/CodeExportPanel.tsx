@@ -171,6 +171,7 @@ export function CodeExportPanel({
                 <SelectItem value="loop">Loop</SelectItem>
                 <SelectItem value="hover">Hover</SelectItem>
                 <SelectItem value="scroll">Scroll</SelectItem>
+                <SelectItem value="drawon">Draw On</SelectItem>
                 <SelectItem value="custom">Custom</SelectItem>
               </SelectContent>
             </Select>

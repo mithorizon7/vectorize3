@@ -1,5 +1,8 @@
 import { JSDOM } from 'jsdom';
 import { optimizeSVGViewBox, ViewBoxOptimizationOptions } from './svgViewBoxOptimizer';
+import { prepareStrokesForAnimation, StrokePreparationOptions, PathLengthInfo } from './strokePreparation';
+import { enhanceAccessibility, AccessibilityOptions, AccessibilityMetadata } from './accessibilityEnhancer';
+import { optimizeForAnimation as performanceOptimize, PerformanceOptions, ComplexityAnalysis, OptimizationResult } from './performanceOptimizer';
 
 /**
  * Server-side animation SVG processing utilities
@@ -14,6 +17,13 @@ export interface AnimationProcessingOptions {
   optimizeForAnimation: boolean;
   optimizeViewBox?: boolean;
   extractColors?: boolean;
+  prepareStrokes?: boolean;
+  setupDrawOn?: boolean;
+  enhanceAccessibility?: boolean;
+  customTitle?: string;
+  customDescription?: string;
+  enablePerformanceOptimization?: boolean;
+  targetReduction?: number;
 }
 
 export interface ProcessedAnimationSVG {
@@ -36,6 +46,10 @@ export interface ProcessedAnimationSVG {
       color: string;
       usage: number;
     }>;
+    pathLengths?: PathLengthInfo[];
+    accessibility?: AccessibilityMetadata;
+    performance?: ComplexityAnalysis;
+    optimizationResult?: OptimizationResult;
   };
 }
 
@@ -103,13 +117,68 @@ export async function processForAnimation(
       viewBoxInfo = viewBoxResult.viewBoxInfo;
     }
 
-    // Step 4: Optimize for animation performance
-    if (options.optimizeForAnimation) {
-      console.log('Optimizing for animation...');
-      processedSvg = optimizeForAnimation(processedSvg);
+    // Step 4: Prepare strokes for animation
+    let pathLengthInfo: PathLengthInfo[] = [];
+    if (options.prepareStrokes || options.setupDrawOn) {
+      console.log('Preparing strokes for animation...');
+      const strokeOptions: StrokePreparationOptions = {
+        addPathLengths: options.prepareStrokes || false,
+        setupDrawOn: options.setupDrawOn || false,
+        expandStrokesToFills: false,
+        preserveOriginalStrokes: true
+      };
+      
+      const strokeResult = prepareStrokesForAnimation(processedSvg, strokeOptions);
+      processedSvg = strokeResult.svg;
+      pathLengthInfo = strokeResult.pathLengths;
     }
 
-    // Step 5: Calculate metadata
+    // Step 5: Optimize for animation performance
+    let optimizationResult: OptimizationResult | undefined;
+    if (options.optimizeForAnimation || options.enablePerformanceOptimization) {
+      console.log('Optimizing for animation performance...');
+      
+      if (options.enablePerformanceOptimization) {
+        // Use advanced performance optimization
+        const perfOptions: PerformanceOptions = {
+          targetComplexity: 'medium',
+          enableNodeReduction: true,
+          targetReduction: options.targetReduction || 30,
+          mergePaths: true,
+          simplifyPaths: true,
+          removeRedundantGroups: true,
+          optimizeForFPS: true,
+          targetFPS: 60
+        };
+        
+        optimizationResult = performanceOptimize(processedSvg, perfOptions);
+        processedSvg = optimizationResult.optimizedSVG;
+        console.log(`Performance optimization: ${optimizationResult.reductionAchieved}% reduction achieved`);
+      } else {
+        // Use basic optimization
+        processedSvg = optimizeForAnimation(processedSvg);
+      }
+    }
+
+    // Step 6: Enhance accessibility
+    let accessibilityMetadata: AccessibilityMetadata | undefined;
+    if (options.enhanceAccessibility) {
+      console.log('Enhancing SVG accessibility...');
+      const accessibilityOptions: AccessibilityOptions = {
+        addRoleImg: true,
+        addTitleDesc: true,
+        addReducedMotionSupport: true,
+        addFocusStates: true,
+        customTitle: options.customTitle,
+        customDescription: options.customDescription
+      };
+      
+      const accessibilityResult = enhanceAccessibility(processedSvg, accessibilityOptions);
+      processedSvg = accessibilityResult.svg;
+      accessibilityMetadata = accessibilityResult.metadata;
+    }
+
+    // Step 7: Calculate metadata
     metadata.elementCount = (processedSvg.match(/<(path|rect|circle|ellipse|polygon|line|g)/g) || []).length;
     metadata.groupCount = (processedSvg.match(/<g/g) || []).length;
     metadata.pathCount = (processedSvg.match(/<path/g) || []).length;
@@ -132,6 +201,22 @@ export async function processForAnimation(
       (metadata as any).colors = colors;
     }
     
+    // Add path length information if available
+    if (pathLengthInfo.length > 0) {
+      (metadata as any).pathLengths = pathLengthInfo;
+    }
+    
+    // Add accessibility metadata if available
+    if (accessibilityMetadata) {
+      (metadata as any).accessibility = accessibilityMetadata;
+    }
+    
+    // Add performance metadata if available
+    if (optimizationResult) {
+      (metadata as any).performance = optimizationResult.afterAnalysis;
+      (metadata as any).optimizationResult = optimizationResult;
+    }
+    
     // Calculate complexity based on element count and structure
     if (metadata.elementCount < 10) {
       metadata.complexity = 'low' as const;
@@ -150,6 +235,10 @@ export async function processForAnimation(
     if (options.optimizeForAnimation) metadata.animationReadiness += 15;
     if (options.optimizeViewBox) metadata.animationReadiness += 5;
     if (viewBoxInfo && viewBoxInfo.isOptimized) metadata.animationReadiness += 5;
+    if (options.prepareStrokes) metadata.animationReadiness += 10;
+    if (options.setupDrawOn) metadata.animationReadiness += 15;
+    if (options.enhanceAccessibility) metadata.animationReadiness += 10;
+    if (options.enablePerformanceOptimization) metadata.animationReadiness += 20;
     
     metadata.animationReadiness = Math.min(100, metadata.animationReadiness);
 
