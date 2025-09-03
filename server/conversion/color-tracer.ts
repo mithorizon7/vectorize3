@@ -77,27 +77,35 @@ export async function convertImageToColorSVG(
     console.log("Temp file created. Size:", fs.statSync(tmpFilePath).size, "bytes");
     
     try {
-      // Configure ImageTracer params based on options
+      // Configure ImageTracer params based on options with optimized defaults
       const params = {
-        // Core tracing
-        numberofcolors: options.numberOfColors || 16,
-        colorquantcycles: 3,
+        // Core tracing - adaptive color count based on preserveColors setting
+        numberofcolors: options.preserveColors ? 
+          Math.max(options.numberOfColors || 24, 16) : // Higher default when preserving colors
+          (options.numberOfColors || 16),
+        colorquantcycles: options.preserveColors ? 4 : 3, // More quantization cycles for better color accuracy
         layering: 0, // 0: sequential, 1: parallel
         
-        // Color selection
+        // Color selection - improved for color preservation
         colorsampling: options.colorSampling !== undefined ? options.colorSampling : 
                       (options.colorMode === 'grayscale' ? 0 : 1), // 0: disabled, 1: enabled
-        mincolorratio: options.minColorRatio || 0.02,
+        mincolorratio: options.preserveColors ? 
+          Math.min(options.minColorRatio || 0.01, 0.015) : // Lower threshold to capture more colors
+          (options.minColorRatio || 0.02),
         colorquantization: 
           options.colorQuantization === 'riemersma' ? 1 :
-          options.colorQuantization === 'floyd-steinberg' ? 2 : 0, // 0: default, 1: riemersma, 2: floyd-steinberg
+          options.colorQuantization === 'floyd-steinberg' ? 2 : 
+          (options.preserveColors ? 2 : 0), // Default to floyd-steinberg for better color gradients when preserving colors
         
-        // Tracing - use user-provided values if available
-        ltres: options.ltres !== undefined ? options.ltres : 1, // line threshold
-        qtres: options.qtres !== undefined ? options.qtres : 1, // quadratic threshold
+        // Tracing - optimized for detail preservation
+        ltres: options.ltres !== undefined ? options.ltres : 
+               (options.preserveColors ? 0.8 : 1), // Lower line threshold for more detail when preserving colors
+        qtres: options.qtres !== undefined ? options.qtres : 
+               (options.preserveColors ? 0.8 : 1), // Lower quadratic threshold for smoother curves
         
-        // Path optimization
-        pathomit: options.pathomit !== undefined ? options.pathomit : 8, // omit paths shorter than this
+        // Path optimization - balance between detail and file size
+        pathomit: options.pathomit !== undefined ? options.pathomit : 
+                  (options.preserveColors ? 6 : 8), // Keep smaller paths when preserving colors
         
         // Edge enhancement
         strokewidth: options.strokeWidth || 1, // SVG stroke-width
@@ -105,12 +113,13 @@ export async function convertImageToColorSVG(
         // SVG attributes
         linefilter: true, // enable line filter for noise reduction
         scale: 1, // scale the SVG
-        roundcoords: options.roundcoords !== undefined ? options.roundcoords : 1, // rounding digits
+        roundcoords: options.roundcoords !== undefined ? options.roundcoords : 
+                    (options.preserveColors ? 2 : 1), // Higher precision when preserving colors
         viewbox: true, // include viewBox
         
-        // Debug options
-        blurradius: options.blurRadius || 0, // blur radius
-        blurdelta: 20, // blur delta
+        // Preprocessing options - optimized for color preservation
+        blurradius: options.blurRadius || (options.preserveColors ? 0 : 0), // No blur when preserving colors
+        blurdelta: options.preserveColors ? 10 : 20, // Lower blur delta for better color accuracy
         
         // Output options - use custom palette if provided
         pal: options.customPalette ? 

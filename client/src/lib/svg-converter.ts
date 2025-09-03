@@ -50,8 +50,8 @@ export const initialSVGOptions: SVGOptions = {
   drawStyle: "fillShapes",
   strokeWidth: 2.0,
   
-  // Trace engine selection (default to potrace for b&w images)
-  traceEngine: "potrace",
+  // Trace engine selection (auto-detect color vs b&w for better results)
+  traceEngine: "auto",
   
   // Potrace specific options
   shapeStacking: "placeCutouts", 
@@ -67,11 +67,11 @@ export const initialSVGOptions: SVGOptions = {
   alphaMax: 1.0,    // Corner threshold parameter
   optTolerance: 0.2, // Curve optimization tolerance
   
-  // ImageTracerJS specific options (for color tracing)
-  numberOfColors: 16,
+  // ImageTracerJS specific options (for color tracing) - optimized defaults
+  numberOfColors: 24, // Higher default for better color fidelity
   colorMode: "color",
-  minColorRatio: 0.02,
-  colorQuantization: "default",
+  minColorRatio: 0.01, // Lower threshold to capture more subtle colors
+  colorQuantization: "floyd-steinberg", // Better dithering for color gradients
   blurRadius: 0,
   preserveColors: true,
   

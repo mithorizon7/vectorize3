@@ -99,7 +99,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           strokeWidth: parseFloat(req.body.strokeWidth) || 0.5,
           
           // Engine selection
-          traceEngine: req.body.traceEngine || "potrace", // potrace, imagetracer, or auto
+          traceEngine: req.body.traceEngine || "auto", // potrace, imagetracer, or auto
           
           // Potrace specific options
           shapeStacking: req.body.shapeStacking || "placeCutouts",
@@ -161,13 +161,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         let result: string;
         
+        // PRIORITY: If preserveColors is enabled, always use color tracing
+        if (options.preserveColors) {
+          console.log("Using ImageTracerJS to preserve original colors");
+          result = await convertImageToColorSVG(fileBuffer, options);
+        }
         // Use color analysis to auto-detect the best engine if not explicitly specified
-        if (options.traceEngine === 'auto') {
+        else if (options.traceEngine === 'auto') {
           const colorAnalysis = await detectColorComplexity(fileBuffer);
           console.log("Image color analysis:", colorAnalysis);
           
-          // Choose engine based on color complexity
-          if (colorAnalysis.isColorImage && colorAnalysis.distinctColors > 8) {
+          // Choose engine based on color complexity - lowered threshold for better color preservation
+          if (colorAnalysis.isColorImage && colorAnalysis.distinctColors > 4) {
             console.log("Auto-selected imagetracer for color image");
             result = await convertImageToColorSVG(fileBuffer, options);
           } else {

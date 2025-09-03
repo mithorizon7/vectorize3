@@ -49,16 +49,21 @@ async function processConversionJob(job: Job<ConversionJobPayload>) {
     
     let result: string;
     
+    // PRIORITY: If preserveColors is enabled, always use color tracing
+    if (options.preserveColors) {
+      emitProgress(job.id.toString(), 50, 'Preserving original colors with color tracer...');
+      result = await convertImageToColorSVG(fileBuffer, options);
+    }
     // Auto-detect the best conversion method if requested
-    if (options.traceEngine === 'auto') {
+    else if (options.traceEngine === 'auto') {
       // Update progress
       emitProgress(job.id.toString(), 40, 'Analyzing image colors...');
       
       // Analyze image colors
       const colorAnalysis = await detectColorComplexity(fileBuffer);
       
-      // Choose engine based on color complexity
-      if (colorAnalysis.isColorImage && colorAnalysis.distinctColors > 8) {
+      // Choose engine based on color complexity - lowered threshold for better color preservation
+      if (colorAnalysis.isColorImage && colorAnalysis.distinctColors > 4) {
         emitProgress(job.id.toString(), 50, 'Converting color image...');
         result = await convertImageToColorSVG(fileBuffer, options);
       } else {
