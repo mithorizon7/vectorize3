@@ -4,6 +4,7 @@ import * as crypto from 'crypto';
 import { JSDOM } from 'jsdom';
 import sharp from 'sharp';
 import { processImageBuffer } from '../utils/imageProcessing';
+import { ensureTransparentBackground, removeTracerBackgrounds } from '../utils/transparencyUtils';
 // Use dynamic import for imagetracer since it's a dual module (supports CJS and ESM)
 // This is a workaround for the "require is not defined in ES module scope" error
 let ImageTracer: any = null;
@@ -156,7 +157,11 @@ export async function convertImageToColorSVG(
           console.log("SVG generation successful, length:", svgString?.length || 0);
           
           // Set proper SVG version
-          const processedSVG = setCorrectSvgVersion(svgString, options.svgVersion);
+          let processedSVG = setCorrectSvgVersion(svgString, options.svgVersion);
+          
+          // IMPORTANT: Remove any backgrounds by default for transparent output
+          console.log("Applying transparent background processing...");
+          processedSVG = removeTracerBackgrounds(processedSVG, 'imagetracer');
           
           resolve(processedSVG);
         } catch (traceErr) {

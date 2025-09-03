@@ -49,7 +49,9 @@ export async function processImageBuffer(imageBuffer: Buffer, context: string = 
       compressionLevel: 0, // No compression for better quality during processing
       adaptiveFiltering: false, // Faster processing
       force: true, // Force PNG output even if input is PNG
-      palette: false // Ensure full color depth
+      palette: false, // Ensure full color depth
+      progressive: false, // Standard PNG for better tracer compatibility
+      quality: 100 // Maximum quality to preserve details
     });
     
     // Handle different color spaces and preserve color profiles
@@ -63,13 +65,17 @@ export async function processImageBuffer(imageBuffer: Buffer, context: string = 
       }
     }
     
-    // Handle transparency properly
+    // Handle transparency properly - ensure all images can have transparency
     if (metadata.hasAlpha) {
-      console.log("Preserving alpha channel for transparency");
+      console.log("Preserving existing alpha channel for transparency");
       processedImage = processedImage.ensureAlpha();
     } else if (metadata.channels === 4) {
       // Image might have alpha channel without metadata indicating it
       console.log("Detected 4-channel image, ensuring alpha handling");
+      processedImage = processedImage.ensureAlpha();
+    } else {
+      // For non-transparent formats (like JPEG), add alpha channel to enable transparency
+      console.log(`Adding alpha channel to ${metadata.format} for transparency support`);
       processedImage = processedImage.ensureAlpha();
     }
     

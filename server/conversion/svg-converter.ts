@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import { processImageBuffer } from '../utils/imageProcessing';
+import { ensureTransparentBackground, removeTracerBackgrounds } from '../utils/transparencyUtils';
 
 interface TracingOptions {
   fileFormat: string;
@@ -96,6 +97,10 @@ export async function convertImageToSVG(
       
       // Set proper SVG version
       result = setCorrectSvgVersion(result, options.svgVersion);
+      
+      // IMPORTANT: Remove any backgrounds by default for transparent output
+      console.log("Applying transparent background processing...");
+      result = removeTracerBackgrounds(result, 'potrace');
       
       // Apply non-scaling stroke if selected
       if (options.nonScalingStroke) {
