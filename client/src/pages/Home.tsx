@@ -4,6 +4,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Shield, HelpCircle, Github } from "lucide-react";
+import ModeToggle from "@/components/ModeToggle";
 import UploadArea, { convertImageWithOptions } from "@/components/UploadArea";
 import SVGPreview from "@/components/SVGPreview";
 import ConversionSettings from "@/components/ConversionSettings";
@@ -113,6 +114,7 @@ export default function Home() {
             </span>
           </div>
           <div className="flex items-center gap-4">
+            <ModeToggle />
             <Button variant="ghost" size="sm" className="text-muted-foreground">
               <HelpCircle className="h-4 w-4 mr-1" />
               Help

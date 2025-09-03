@@ -41,6 +41,12 @@ export type SVGOptions = {
   
   // Custom palette option
   customPalette?: string[]; // Array of hex color codes to use as the palette
+  
+  // Animation mode options
+  animationMode?: boolean;
+  idPrefix?: string;
+  flattenTransforms?: boolean;
+  generateStableIds?: boolean;
 };
 
 export const initialSVGOptions: SVGOptions = {
@@ -83,7 +89,13 @@ export const initialSVGOptions: SVGOptions = {
   roundcoords: 1,    // rounding digits
   
   // Custom palette starts empty - will be auto-detected
-  customPalette: []  // Array of hex color codes to use as the palette
+  customPalette: [],  // Array of hex color codes to use as the palette
+  
+  // Animation mode options (defaults)
+  animationMode: false,
+  idPrefix: 'anim_',
+  flattenTransforms: false,
+  generateStableIds: true,
 };
 
 export function updateSvgColor(svgContent: string, color: string): string {

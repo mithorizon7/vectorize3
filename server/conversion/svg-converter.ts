@@ -6,6 +6,7 @@ import * as crypto from 'crypto';
 import { processImageBuffer } from '../utils/imageProcessing';
 import { ensureTransparentBackground, removeTracerBackgrounds } from '../utils/transparencyUtils';
 import { applySVGGrouping, optimizeSVGForUseCase } from '../utils/svgGroupingUtils';
+import { processForAnimation, AnimationProcessingOptions } from '../utils/animationSvgProcessor';
 
 interface TracingOptions {
   fileFormat: string;
@@ -24,6 +25,12 @@ interface TracingOptions {
   turdSize?: number;      // Suppress speckles of this size or smaller
   alphaMax?: number;      // Corner threshold parameter
   optTolerance?: number;  // Curve optimization tolerance
+  
+  // Animation mode options
+  animationMode?: boolean;
+  idPrefix?: string;
+  flattenTransforms?: boolean;
+  generateStableIds?: boolean;
 }
 
 // Ensure temp directory exists
@@ -110,6 +117,25 @@ export async function convertImageToSVG(
         groupBy: options.groupBy,
         allowedCurveTypes: options.allowedCurveTypes
       });
+      
+      // Apply animation processing if in animation mode
+      if (options.animationMode) {
+        console.log("Processing SVG for animation-ready output...");
+        const animationOptions: AnimationProcessingOptions = {
+          idPrefix: options.idPrefix || 'anim_',
+          flattenTransforms: options.flattenTransforms || false,
+          preserveHierarchy: true,
+          generateStableIds: options.generateStableIds || true,
+          optimizeForAnimation: true,
+          optimizeViewBox: true,
+          extractColors: true
+        };
+        
+        const processed = await processForAnimation(result, animationOptions);
+        result = processed.svg;
+        
+        console.log("Animation processing complete:", processed.metadata);
+      }
       
       // Apply non-scaling stroke if selected
       if (options.nonScalingStroke) {

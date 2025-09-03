@@ -135,7 +135,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Custom palette option
           customPalette: req.body.customPalette ? 
             (typeof req.body.customPalette === 'string' ? 
-              JSON.parse(req.body.customPalette) : req.body.customPalette) : undefined
+              JSON.parse(req.body.customPalette) : req.body.customPalette) : undefined,
+          
+          // Animation mode options
+          animationMode: req.body.animationMode === 'true',
+          idPrefix: req.body.idPrefix || 'anim_',
+          flattenTransforms: req.body.flattenTransforms === 'true',
+          generateStableIds: req.body.generateStableIds !== 'false' // Default to true
         };
 
         console.log("Processing conversion with options:", options);

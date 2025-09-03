@@ -30,6 +30,8 @@ interface ConversionSettingsProps {
   files?: File[];
   batchMode?: boolean;
   onSettingsChange?: () => void;
+  // Animation mode flag for simplified UI
+  animationMode?: boolean;
 }
 
 export default function ConversionSettings({
@@ -39,6 +41,7 @@ export default function ConversionSettings({
   files,
   batchMode,
   onSettingsChange,
+  animationMode = false,
 }: ConversionSettingsProps) {
   const [activePreset, setActivePreset] = useState<string | null>(null);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);

@@ -6,6 +6,7 @@ import sharp from 'sharp';
 import { processImageBuffer } from '../utils/imageProcessing';
 import { ensureTransparentBackground, removeTracerBackgrounds } from '../utils/transparencyUtils';
 import { applySVGGrouping, optimizeSVGForUseCase } from '../utils/svgGroupingUtils';
+import { processForAnimation, AnimationProcessingOptions } from '../utils/animationSvgProcessor';
 // Use dynamic import for imagetracer since it's a dual module (supports CJS and ESM)
 // This is a workaround for the "require is not defined in ES module scope" error
 let ImageTracer: any = null;
@@ -48,6 +49,12 @@ export interface ColorTracingOptions {
   
   // NEW: Custom palette for color mapping
   customPalette?: string[]; // Array of hex color codes to use as the palette
+  
+  // Animation mode options
+  animationMode?: boolean;
+  idPrefix?: string;
+  flattenTransforms?: boolean;
+  generateStableIds?: boolean;
   
   // Additional options that may not be in the client-side options
   lineJoin?: 'round' | 'bevel' | 'miter';
@@ -171,14 +178,57 @@ export async function convertImageToColorSVG(
               shapeStacking: options.shapeStacking || 'placeCutouts',
               groupBy: options.groupBy || 'none',
               allowedCurveTypes: options.allowedCurveTypes
-            }).then(groupedSVG => {
-              resolve(groupedSVG);
+            }).then(async (groupedSVG) => {
+              let finalSVG = groupedSVG;
+              
+              // Apply animation processing if in animation mode
+              if (options.animationMode) {
+                console.log("Processing ImageTracer SVG for animation-ready output...");
+                const animationOptions: AnimationProcessingOptions = {
+                  idPrefix: options.idPrefix || 'anim_',
+                  flattenTransforms: options.flattenTransforms || false,
+                  preserveHierarchy: true,
+                  generateStableIds: options.generateStableIds || true,
+                  optimizeForAnimation: true,
+                  optimizeViewBox: true,
+                  extractColors: true
+                };
+                
+                const processed = await processForAnimation(finalSVG, animationOptions);
+                finalSVG = processed.svg;
+                
+                console.log("Animation processing complete:", processed.metadata);
+              }
+              
+              resolve(finalSVG);
             }).catch(err => {
               console.error("Error applying SVG grouping:", err);
               resolve(processedSVG); // Return original on error
             });
           } else {
-            resolve(processedSVG);
+            // Handle animation processing even without grouping
+            if (options.animationMode) {
+              console.log("Processing ImageTracer SVG for animation-ready output...");
+              const animationOptions: AnimationProcessingOptions = {
+                idPrefix: options.idPrefix || 'anim_',
+                flattenTransforms: options.flattenTransforms || false,
+                preserveHierarchy: true,
+                generateStableIds: options.generateStableIds || true,
+                optimizeForAnimation: true,
+                optimizeViewBox: true,
+                extractColors: true
+              };
+              
+              processForAnimation(processedSVG, animationOptions).then(processed => {
+                console.log("Animation processing complete:", processed.metadata);
+                resolve(processed.svg);
+              }).catch(err => {
+                console.error("Error in animation processing:", err);
+                resolve(processedSVG);
+              });
+            } else {
+              resolve(processedSVG);
+            }
           }
         } catch (traceErr) {
           console.error("Error in ImageTracer.imageTracer:", traceErr);
